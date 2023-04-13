@@ -1,52 +1,38 @@
 #include <stdio.h>
-#include <fcntl.h>
+#include <stdlib.h>
 #include <string.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 #include <unistd.h>
-#include <limits.h>
 
-int getCWD();
+#define CENTRAL_ECU "central_ecu"
 
 int main (void) 
 {
-    getCWD();
-    int fd, messageLen, i, pid;
-    char message [100];
-
-    pid = getpid();
-
-    sprintf(message,"Hello from PID %d", pid); /* Prepare message */
-
-    messageLen = strlen(message) + 1;
-    int c = 0;
-    do 
-    { /* Keep trying to open the file until successful */
-        fd = open("aPipe", O_WRONLY); /* Open named pipe for writing */
-        printf("Attempt to open aPipe %d. (%d)\n", fd, c++);
-        if (fd == -1)
-            sleep(1); /* Try again in 1 second */ 
-    } while (fd == -1);
-
-    for (i = 1; i <= 10; i++) 
-    {   /* Send three messages */
-        /* Write message down pipe */
-        int res = write(fd, message, messageLen);
-        printf("Attempt to write on aPipe %d. counter(%d) status(%d)\n", fd, i, res);
-        sleep(3); /* Pause a while */
+    char input[1024];
+    int fd = open(CENTRAL_ECU, O_WRONLY);
+    if (fd == -1) {
+        perror("open() error");
+        return -1;
     }
-    close(fd); /* Close pipe descriptor */
+
+    while (1) {
+        printf("Enter a command: ");
+        
+        if (scanf("%s", input) == EOF) {
+            break;
+        }
+
+        if (strcmp(input, "INIZIO") == 0 || strcmp(input, "PARCHEGGIO") == 0 || strcmp(input, "ARRESTO") == 0) {
+            size_t len = strlen(input);
+            if (write(fd, input, len) == -1) {
+                perror("write() error");
+                close(fd);
+                return -1;
+            }
+        }
+    }
+
+    close(fd);
     return 0; 
-}
-
-int getCWD() {
-    char cwd[PATH_MAX];
-    if (getcwd(cwd, sizeof(cwd)) != NULL) 
-    {
-        printf("Current working dir: %s\n", cwd);
-    } 
-    else 
-    {
-        perror("getcwd() error");
-        return 1;
-    }
-    return 0;
 }
