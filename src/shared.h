@@ -1,1 +1,0 @@
-void writeLog (char*  msg);

@@ -4,12 +4,12 @@
 #include <string.h>
 #include <sys/wait.h>
 // #include "./hmi.c"
-#define CENTRAL_ECU "./log/central_ecu"
-#define ECU_LOG "./log/ECU.log"
+#define CENTRAL_ECU "log/central_ecu"
+#define ECU_LOG "log/ECU.log"
 #define NORMAL "NORMALE"
 #define ARTIFICIAL "ARTIFICIALE"
 
-#include "./central_ecu.c"
+#include "component.c"
 
 int main(int argc, char *argv[])
 {
