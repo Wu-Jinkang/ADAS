@@ -5,34 +5,43 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#define CENTRAL_ECU "central_ecu"
+#define CENTRAL_ECU "./log/central_ecu"
 
-int main (void) 
+int main(void)
 {
     char input[1024];
-    int fd = open(CENTRAL_ECU, O_WRONLY);
-    if (fd == -1) {
-        perror("open() error");
-        return -1;
-    }
-
-    while (1) {
+    do
+    {
         printf("Enter a command: ");
-        
-        if (scanf("%s", input) == EOF) {
+
+        if (scanf("%s", input) == EOF)
+        {
             break;
         }
 
-        if (strcmp(input, "INIZIO") == 0 || strcmp(input, "PARCHEGGIO") == 0 || strcmp(input, "ARRESTO") == 0) {
+        if (strcmp(input, "INIZIO") == 0 || strcmp(input, "PARCHEGGIO") == 0 || strcmp(input, "ARRESTO") == 0)
+        {
+            int fd = open(CENTRAL_ECU, O_WRONLY);
+            if (fd == -1)
+            {
+                perror("open() error");
+                return -1;
+            }
             size_t len = strlen(input);
-            if (write(fd, input, len) == -1) {
+            if (write(fd, input, len) == -1)
+            {
                 perror("write() error");
                 close(fd);
                 return -1;
             }
+            close(fd);
+            if (strcmp(input, "ARRESTO") == 0)
+            {
+                break;
+            }
+            memset(input, 0, sizeof(input));
         }
-    }
+    } while (1);
 
-    close(fd);
-    return 0; 
+    return 0;
 }

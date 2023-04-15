@@ -7,36 +7,59 @@
 #include <string.h>
 #include <stdlib.h>
 
-#define ECU_LOG "/log/ECU.log"
+#define ECU_LOG "./log/ECU.log"
 
-int readLine(int fd, char *str);
+int readLineFromIndex(int fd, char *str, int *index);
 
-int main (void) 
+int main(void)
 {
-    int fd;
-    char str[100];
+    int fd, len, n;
+    size_t str_len = 20;
+    char *str = (char *)calloc(str_len, sizeof(char));
 
-    fd = open(ECU_LOG, O_RDONLY | O_NONBLOCK); /* Open it for reading */ 
+    len = 0;
 
-    /* Display received messages */
-    do 
+    do
     {
-        readLine(fd, str);
-        printf("%s\n", str);
-    } while (strcmp(str, "FINE") != 0);
+        fd = open(ECU_LOG, O_RDONLY);
+        if (fd == -1)
+        {
+            perror("open() error");
+            return -1;
+        }
 
-    close(fd); /* Close pipe */ 
+        // Get file string current length
+        off_t currentPos = lseek(fd, (size_t)0, SEEK_END);
 
+        n = readLineFromIndex(fd, str, &len);
+
+        if (currentPos > len)
+        {
+            len = currentPos;
+            printf("%s\n", str);
+        }
+
+        if (strcmp(str, "ARRESTO") == 0)
+        {
+            break;
+        }
+        memset(str, 0, str_len);
+
+        close(fd);
+    } while (1);
+
+    free(str);
     return 0;
 }
 
-int readLine(int fd, char *str) 
+int readLineFromIndex(int fd, char *str, int *index)
 {
     int n;
-    do 
-    {   
-        n = read(fd, str, 1); 
+    lseek(fd, *index, SEEK_SET);
+    do
+    {
+        n = read(fd, str, 1);
     } while (n > 0 && *str++ != '\0');
 
-    return (n > 0); 
+    return (n > 0);
 }
