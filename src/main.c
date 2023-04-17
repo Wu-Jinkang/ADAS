@@ -11,6 +11,8 @@
 #define THROTTLE_LOG "log/throttle.log"
 #define BRAKE_BY_WIRE "log/brake_by_wire"
 #define BRAKE_LOG "log/brake.log"
+#define CAMERA_LOG "log/camera.log"
+#define FRONT_CAMERA_DATA "res/frontCamera.data"
 #define NORMAL "NORMALE"
 #define ARTIFICIAL "ARTIFICIALE"
 
@@ -40,7 +42,7 @@ int main(int argc, char *argv[])
         exit(2);
     }
 
-    int processes = 2;
+    int processes = 4;
     int i;
     for (i = 1; i <= processes; i++)
     {
@@ -52,7 +54,17 @@ int main(int argc, char *argv[])
             }
             else if (i == 2)
             {
-                iniSteerByWire();
+                initSteerByWire();
+            }
+            else if (i == 3) {
+                initThrottleControl();
+            }
+            else if (i == 3)
+            {
+                initBrakeByWire();
+            }
+            else if (i == 4) {
+                initFrontWindshieldCamera();
             }
             exit(0);
         }

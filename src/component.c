@@ -10,6 +10,8 @@
 
 int readLine(int fd, char *str);
 int throttle_breaks();
+int readLineFromIndex(int fd, char *str, int *index);
+int readLine2(int fd, char *str);
 
 void initCentralECU()
 {
@@ -78,7 +80,7 @@ void initCentralECU()
     unlink(CENTRAL_ECU);
 }
 
-void iniSteerByWire()
+void initSteerByWire()
 {
     char str[100], print_str[100];
     int fd_log, fd_steer, count;
@@ -152,7 +154,7 @@ void iniSteerByWire()
     close(fd_log);
 }
 
-void iniThrottleControl()
+void initThrottleControl()
 {
     char str[100], print_str[100];
     int fd_log, fd_throttle;
@@ -214,7 +216,7 @@ void iniThrottleControl()
     close(fd_log);
 }
 
-void iniBrakeByWire()
+void initBrakeByWire()
 {
     char str[100], print_str[100];
     int fd_log, fd_brake;
@@ -275,6 +277,70 @@ void iniBrakeByWire()
     close(fd_log);
 }
 
+void initFrontWindshieldCamera()
+{
+    char str[100];
+    int fd_log, fd_camera, fd_central;
+    fd_log = open(CAMERA_LOG, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
+    if (fd_log == -1)
+    {
+        perror("open() error");
+        exit(-1);
+    }
+
+    fd_camera = open(FRONT_CAMERA_DATA, O_RDONLY);
+
+    if (fd_camera == -1)
+    {
+        perror("open() error");
+        close(fd_camera);
+        exit(-1);
+    }
+    printf("It works\n");
+    while (1)
+    {
+        memset(str, 0, sizeof(str));
+
+        readLine2(fd_camera, str);
+        str[sizeof(str) - 1] = '\0';
+
+        size_t len = strlen(str);
+        if (write(fd_log, str, len) == -1)
+        {
+            perror("write() error");
+            close(fd_log);
+            close(fd_camera);
+            close(fd_central);
+            exit(-1);
+        }
+        fd_central = open(CENTRAL_ECU, O_WRONLY);
+        if (fd_central == -1)
+        {
+            perror("open() error");
+            exit(-1);
+        }
+        if (write(fd_central, str, len) == -1)
+        {
+            perror("write() error");
+            close(fd_central);
+            close(fd_log);
+            close(fd_camera);
+            exit(-1);
+        }
+        close(fd_central);
+
+        if (strcmp(str, "ARRESTO") == 0)
+        {
+            break;
+        }
+
+        sleep(1);
+    }
+
+    close(fd_camera);
+    close(fd_log);
+}
+
 int readLine(int fd, char *str)
 {
     int n;
@@ -291,4 +357,32 @@ int throttle_breaks()
     int probability = 100000;
     int random_number = rand() % probability;
     return random_number == 0;
+}
+
+int readLineFromIndex(int fd, char *str, int *index)
+{
+    int n;
+    lseek(fd, *index, SEEK_SET);
+    do
+    {
+        n = read(fd, str, 1);
+    } while (n > 0 && *str++ != '\0');
+
+    return (n > 0);
+}
+
+int readLine2(int fd, char *str)
+{
+    int n;
+    do
+    {
+        n = read(fd, str, 1);
+        if (n <= 0 || *str == 10 || *str == EOF)
+        {
+            break;
+        }
+        str += 1;
+    } while (1);
+
+    return (n > 0);
 }
