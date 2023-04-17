@@ -36,10 +36,10 @@ int main(void)
         if (currentPos > len)
         {
             len = currentPos;
-            printf("%s\n", str);
+            printf("%s", str);
         }
 
-        if (strcmp(str, "ARRESTO") == 0)
+        if (strcmp(str, "ARRESTO\n") == 0)
         {
             break;
         }

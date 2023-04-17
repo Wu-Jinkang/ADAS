@@ -30,6 +30,7 @@ void initCentralECU()
 
     while (1)
     {
+        memset(str, 0, sizeof(str));
         fd_central = open(CENTRAL_ECU, O_RDONLY);
 
         if (fd_central == -1)
@@ -52,14 +53,19 @@ void initCentralECU()
                 exit(-1);
             }
             size_t len = strlen(str);
-            if (write(fd_log, str, len) == -1)
+            char *newstr = malloc(len + 2);
+            strcpy(newstr, str);
+            strcat(newstr, "\n");
+            if (write(fd_log, newstr, len + 2) == -1)
             {
                 perror("write() error");
+                free(newstr);
                 unlink(CENTRAL_ECU);
                 close(fd_log);
                 close(fd_central);
                 exit(-1);
             }
+            free(newstr);
             close(fd_log);
         }
 
@@ -67,7 +73,6 @@ void initCentralECU()
         {
             break;
         }
-        memset(str, 0, sizeof(str));
     }
 
     unlink(CENTRAL_ECU);
@@ -91,6 +96,8 @@ void iniSteerByWire()
 
     while (1)
     {
+        memset(str, 0, sizeof(str));
+
         fd_steer = open(STEER_BY_WIRE, O_RDONLY);
 
         if (fd_steer == -1)
@@ -138,8 +145,6 @@ void iniSteerByWire()
         {
             break;
         }
-
-        memset(str, 0, sizeof(str));
         sleep(1);
     }
 
@@ -164,6 +169,8 @@ void iniThrottleControl()
 
     while (1)
     {
+        memset(str, 0, sizeof(str));
+
         fd_throttle = open(THROTTLE_CONTROL, O_RDONLY);
 
         if (fd_throttle == -1)
@@ -201,8 +208,6 @@ void iniThrottleControl()
         {
             break;
         }
-
-        memset(str, 0, sizeof(str));
     }
 
     unlink(THROTTLE_CONTROL);
@@ -226,6 +231,8 @@ void iniBrakeByWire()
 
     while (1)
     {
+        memset(str, 0, sizeof(str));
+        
         fd_brake = open(BRAKE_BY_WIRE, O_RDONLY);
 
         if (fd_brake == -1)
@@ -262,8 +269,6 @@ void iniBrakeByWire()
         {
             break;
         }
-
-        memset(str, 0, sizeof(str));
     }
 
     unlink(BRAKE_BY_WIRE);
