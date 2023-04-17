@@ -11,13 +11,14 @@
 int readLine(int fd, char *str);
 int throttle_breaks();
 int readLineFromIndex(int fd, char *str, int *index);
-int readLine2(int fd, char *str);
+int writeln(int fd, char *str);
 
 void initCentralECU()
 {
     CAR_SPEED = 0;
     char str[100];
     int fd_log, fd_central, start;
+    start = 0;
 
     unlink(CENTRAL_ECU);
     mknod(CENTRAL_ECU, S_IFIFO, 0);
@@ -54,20 +55,14 @@ void initCentralECU()
                 perror("open() error");
                 exit(-1);
             }
-            size_t len = strlen(str);
-            char *newstr = malloc(len + 2);
-            strcpy(newstr, str);
-            strcat(newstr, "\n");
-            if (write(fd_log, newstr, len + 2) == -1)
+            if (writeln(fd_log, str) == -1)
             {
                 perror("write() error");
-                free(newstr);
                 unlink(CENTRAL_ECU);
                 close(fd_log);
                 close(fd_central);
                 exit(-1);
             }
-            free(newstr);
             close(fd_log);
         }
 
@@ -77,6 +72,7 @@ void initCentralECU()
         }
     }
 
+    sleep(10);
     unlink(CENTRAL_ECU);
 }
 
@@ -132,8 +128,7 @@ void initSteerByWire()
             }
         }
 
-        size_t len = strlen(print_str);
-        if (write(fd_log, print_str, len) == -1)
+        if (writeln(fd_log, print_str) == -1)
         {
             perror("write() error");
             unlink(STEER_BY_WIRE);
@@ -195,8 +190,7 @@ void initThrottleControl()
         {
             CAR_SPEED += 5;
             sprintf(print_str, "%d:INCREMENTO 5\n", (int)time(NULL));
-            size_t len = strlen(print_str);
-            if (write(fd_log, print_str, len) == -1)
+            if (writeln(fd_log, print_str) == -1)
             {
                 perror("write() error");
                 unlink(THROTTLE_CONTROL);
@@ -257,8 +251,7 @@ void initBrakeByWire()
             strcpy(print_str, "ARRESTO AUTO");
         }
 
-        size_t len = strlen(print_str);
-        if (write(fd_log, print_str, len) == -1)
+        if (writeln(fd_log, print_str) == -1)
         {
             perror("write() error");
             unlink(BRAKE_BY_WIRE);
@@ -296,16 +289,13 @@ void initFrontWindshieldCamera()
         close(fd_camera);
         exit(-1);
     }
-    printf("It works\n");
     while (1)
     {
         memset(str, 0, sizeof(str));
 
-        readLine2(fd_camera, str);
-        str[sizeof(str) - 1] = '\0';
+        readLine(fd_camera, str);
 
-        size_t len = strlen(str);
-        if (write(fd_log, str, len) == -1)
+        if (writeln(fd_log, str) == -1)
         {
             perror("write() error");
             close(fd_log);
@@ -319,7 +309,7 @@ void initFrontWindshieldCamera()
             perror("open() error");
             exit(-1);
         }
-        if (write(fd_central, str, len) == -1)
+        if (writeln(fd_central, str) == -1)
         {
             perror("write() error");
             close(fd_central);
@@ -329,7 +319,7 @@ void initFrontWindshieldCamera()
         }
         close(fd_central);
 
-        if (strcmp(str, "ARRESTO") == 0)
+        if (strcmp(str, "PARCHEGGIO") == 0 || strcmp(str, "ARRESTO") == 0)
         {
             break;
         }
@@ -344,10 +334,16 @@ void initFrontWindshieldCamera()
 int readLine(int fd, char *str)
 {
     int n;
-    do
+    while (1)
     {
         n = read(fd, str, 1);
-    } while (n > 0 && *str++ != '\0');
+        if (n <= 0 || *str == 10 || *str == '\n' || *str == '\0')
+        {
+            *str = '\0';
+            break;
+        }
+        str++;
+    }
 
     return (n > 0);
 }
@@ -371,18 +367,12 @@ int readLineFromIndex(int fd, char *str, int *index)
     return (n > 0);
 }
 
-int readLine2(int fd, char *str)
+int writeln(int fd, char *str)
 {
-    int n;
-    do
-    {
-        n = read(fd, str, 1);
-        if (n <= 0 || *str == 10 || *str == EOF)
-        {
-            break;
-        }
-        str += 1;
-    } while (1);
-
-    return (n > 0);
+    size_t len = strlen(str);
+    char *newstr = malloc(len + 2);
+    strcpy(newstr, str);
+    strcat(newstr, "\n");
+    
+    return write(fd, newstr, len + 1);
 }

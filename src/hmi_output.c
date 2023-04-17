@@ -21,6 +21,7 @@ int main(void)
 
     do
     {
+        memset(str, 0, str_len);
         fd = open(ECU_LOG, O_RDONLY);
         if (fd == -1)
         {
@@ -32,21 +33,13 @@ int main(void)
         off_t currentPos = lseek(fd, (size_t)0, SEEK_END);
 
         n = readLineFromIndex(fd, str, &len);
-
+        close(fd);
         if (currentPos > len)
         {
             len = currentPos;
             printf("%s", str);
         }
-
-        if (strcmp(str, "ARRESTO\n") == 0)
-        {
-            break;
-        }
-        memset(str, 0, str_len);
-
-        close(fd);
-    } while (1);
+    } while (strcmp(str, "ARRESTO\n") != 0);
 
     free(str);
     return 0;
