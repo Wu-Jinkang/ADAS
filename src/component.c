@@ -9,6 +9,7 @@
 #include <time.h>
 
 int readLine(int fd, char *str);
+int read8(int fd, unsigned char *str);
 int throttle_breaks();
 int readLineFromIndex(int fd, char *str, int *index);
 int writeln(int fd, char *str);
@@ -264,6 +265,9 @@ void initBrakeByWire()
         {
             break;
         }
+
+        printf("BRAKE\n");
+        sleep(1);
     }
 
     unlink(BRAKE_BY_WIRE);
@@ -331,6 +335,115 @@ void initFrontWindshieldCamera()
     close(fd_log);
 }
 
+void initForwardFacingRadar()
+{
+    unsigned char str[17];
+    int fd_log, fd_central, fd_urandom;
+    fd_log = open(RADAR_LOG, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
+    if (fd_log == -1)
+    {
+        perror("open() error");
+        exit(-1);
+    }
+
+    while (1)
+    {
+        memset(str, 0, sizeof(str));
+        fd_urandom = open(URANDOM, O_RDONLY);
+        if (fd_urandom == -1)
+        {
+            perror("open() error");
+            close(fd_urandom);
+            exit(-1);
+        }
+        int byte_read = read8(fd_urandom, str);
+        close(fd_urandom);
+        if (byte_read == 8)
+        {
+            if (writeln(fd_log, str) == -1)
+            {
+                perror("write() error");
+                close(fd_log);
+                exit(-1);
+            }
+            fd_central = open(CENTRAL_ECU, O_WRONLY);
+            if (fd_central == -1)
+            {
+                perror("open() error");
+                close(fd_central);
+                close(fd_log);
+                exit(-1);
+            }
+            if (writeln(fd_central, str) == -1)
+            {
+                perror("write() error");
+                close(fd_central);
+                close(fd_log);
+                exit(-1);
+            }
+            close(fd_central);
+        }
+        sleep(1);
+    }
+
+    close(fd_log);
+}
+
+void initParkAssist()
+{
+    unsigned char str[8];
+    int fd_log, fd_central, fd_urandom, i = 0, byte_read = 0;
+    fd_log = open(ASSIST_LOG, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
+    if (fd_log == -1)
+    {
+        perror("open() error");
+        exit(-1);
+    }
+
+    for (; i < 30; i++)
+    {
+        memset(str, 0, sizeof(str));
+        fd_urandom = open(URANDOM, O_RDONLY);
+        if (fd_urandom == -1)
+        {
+            perror("open() error");
+            close(fd_urandom);
+            exit(-1);
+        }
+        byte_read = read8(fd_urandom, str);
+        printf("%d, %d\n", byte_read, i);
+        close(fd_urandom);
+        if (byte_read == 8)
+        {
+            if (writeln(fd_log, str) == -1)
+            {
+                perror("write() error");
+                close(fd_log);
+                exit(-1);
+            }
+            fd_central = open(CENTRAL_ECU, O_WRONLY);
+            if (fd_central == -1)
+            {
+                perror("open() error");
+                close(fd_central);
+                close(fd_log);
+                exit(-1);
+            }
+            if (writeln(fd_central, str) == -1)
+            {
+                perror("write() error");
+                close(fd_central);
+                close(fd_log);
+                exit(-1);
+            }
+            close(fd_central);
+        }
+        sleep(1);
+    }
+
+    close(fd_log);
+}
+
 int readLine(int fd, char *str)
 {
     int n;
@@ -346,6 +459,34 @@ int readLine(int fd, char *str)
     }
 
     return (n > 0);
+}
+
+int read8(int fd, unsigned char *str)
+{
+    ssize_t n = 0;
+    unsigned short value1, value2, value3, value4;
+    n = read(fd, str, sizeof(str));
+
+    printf("%x", str[0]);
+    printf("-%x", str[1]);
+    printf("-%x", str[2]);
+    printf("-%x", str[3]);
+    printf("-%x", str[4]);
+    printf("-%x", str[5]);
+    printf("-%x", str[6]);
+    printf("-%x\n", str[7]);
+
+    value1 = ((str[0] << 8) | str[1]);
+    value2 = ((str[2] << 8) | str[3]);
+    value3 = ((str[4] << 8) | str[5]);
+    value4 = ((str[6] << 8) | str[7]);
+
+    printf("%d", value1);
+    printf("-%d", value2);
+    printf("-%d", value3);
+    printf("-%d\n", value4);
+
+    return n;
 }
 
 int throttle_breaks()

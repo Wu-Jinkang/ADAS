@@ -12,7 +12,11 @@
 #define BRAKE_BY_WIRE "log/brake_by_wire"
 #define BRAKE_LOG "log/brake.log"
 #define CAMERA_LOG "log/camera.log"
+#define RADAR_LOG "log/radar.log"
+#define FORWARD_FACING_RADAR "log/forward_facing_radar"
 #define FRONT_CAMERA_DATA "res/frontCamera.data"
+#define ASSIST_LOG "log/assist.log"
+#define URANDOM "/dev/urandom"
 #define NORMAL "NORMALE"
 #define ARTIFICIAL "ARTIFICIALE"
 
@@ -42,7 +46,7 @@ int main(int argc, char *argv[])
         exit(2);
     }
 
-    int processes = 4;
+    int processes = 6;
     int i;
     for (i = 1; i <= processes; i++)
     {
@@ -54,17 +58,25 @@ int main(int argc, char *argv[])
             }
             else if (i == 2)
             {
-                initSteerByWire();
+                // initSteerByWire();
             }
             else if (i == 3) {
-                initThrottleControl();
+                // initThrottleControl();
             }
             else if (i == 3)
             {
-                initBrakeByWire();
+                // initBrakeByWire();
             }
             else if (i == 4) {
-                initFrontWindshieldCamera();
+                // initFrontWindshieldCamera();
+            }
+            else if (i == 5)
+            {
+                // initForwardFacingRadar();
+            }
+            else if (i == 6)
+            {
+                initParkAssist();
             }
             exit(0);
         }
