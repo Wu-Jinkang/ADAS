@@ -21,7 +21,9 @@
 #define ARTIFICIAL "ARTIFICIALE"
 
 int CAR_SPEED = 0;
+int pid_central, pid_steer, pid_throttle, pid_brake, pid_front_camera, pid_radar, pid_park;
 #include "component.c"
+void createPidFile(char *path);
 
 int main(int argc, char *argv[])
 {
@@ -46,36 +48,43 @@ int main(int argc, char *argv[])
         exit(2);
     }
 
-    int processes = 6;
-    int i;
+    int processes = 6, i;
+    
     for (i = 1; i <= processes; i++)
     {
         if (fork() == 0)
         {
             if (i == 1)
             {
+                createPidFile("run/central.pid");
                 initCentralECU();
             }
             else if (i == 2)
             {
-                // initSteerByWire();
+                createPidFile("run/steer.pid");
+                initSteerByWire();
             }
             else if (i == 3) {
-                // initThrottleControl();
+                createPidFile("run/throttle.pid");
+                initThrottleControl();
             }
             else if (i == 3)
             {
-                // initBrakeByWire();
+                createPidFile("run/brake.pid");
+                initBrakeByWire();
             }
             else if (i == 4) {
-                // initFrontWindshieldCamera();
+                createPidFile("run/front_camera.pid");
+                initFrontWindshieldCamera();
             }
             else if (i == 5)
             {
-                // initForwardFacingRadar();
+                createPidFile("run/radar.pid");
+                initForwardFacingRadar();
             }
             else if (i == 6)
             {
+                createPidFile("run/park.pid");
                 initParkAssist();
             }
             exit(0);
@@ -86,4 +95,17 @@ int main(int argc, char *argv[])
         wait(&status);
 
     return 0;
+} 
+
+void createPidFile (char *path) {
+    int fd = open(path, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
+    char pid[8];
+    if (fd == -1)
+    {
+        perror("open() error");
+        exit(-1);
+    }
+    sprintf(pid, "%d", getpid());
+    printf("%s", pid);
+    write(fd, pid, strlen(pid));
 }

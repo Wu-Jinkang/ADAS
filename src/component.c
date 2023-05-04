@@ -9,7 +9,7 @@
 #include <time.h>
 
 int readLine(int fd, char *str);
-int read8(int fd, unsigned char *str);
+int read8(int fd, char *str);
 int throttle_breaks();
 int readLineFromIndex(int fd, char *str, int *index);
 int writeln(int fd, char *str);
@@ -71,6 +71,8 @@ void initCentralECU()
         {
             break;
         }
+
+        printf("%d,%d,%d,%d,%d,%d,%d\n", pid_central, pid_steer, pid_throttle, pid_brake, pid_front_camera, pid_radar, pid_park);
     }
 
     sleep(10);
@@ -337,7 +339,7 @@ void initFrontWindshieldCamera()
 
 void initForwardFacingRadar()
 {
-    unsigned char str[17];
+    char str[17];
     int fd_log, fd_central, fd_urandom;
     fd_log = open(RADAR_LOG, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
     if (fd_log == -1)
@@ -391,7 +393,7 @@ void initForwardFacingRadar()
 
 void initParkAssist()
 {
-    unsigned char str[8];
+    char str[8];
     int fd_log, fd_central, fd_urandom, i = 0, byte_read = 0;
     fd_log = open(ASSIST_LOG, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
     if (fd_log == -1)
@@ -461,30 +463,10 @@ int readLine(int fd, char *str)
     return (n > 0);
 }
 
-int read8(int fd, unsigned char *str)
+int read8(int fd, char *str)
 {
     ssize_t n = 0;
-    unsigned short value1, value2, value3, value4;
-    n = read(fd, str, sizeof(str));
-
-    printf("%x", str[0]);
-    printf("-%x", str[1]);
-    printf("-%x", str[2]);
-    printf("-%x", str[3]);
-    printf("-%x", str[4]);
-    printf("-%x", str[5]);
-    printf("-%x", str[6]);
-    printf("-%x\n", str[7]);
-
-    value1 = ((str[0] << 8) | str[1]);
-    value2 = ((str[2] << 8) | str[3]);
-    value3 = ((str[4] << 8) | str[5]);
-    value4 = ((str[6] << 8) | str[7]);
-
-    printf("%d", value1);
-    printf("-%d", value2);
-    printf("-%d", value3);
-    printf("-%d\n", value4);
+    n = read(fd, str, 8);
 
     return n;
 }

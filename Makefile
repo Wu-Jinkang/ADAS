@@ -4,6 +4,7 @@ OBJDIR = obj
 BINDIR = bin
 SRCDIR = src
 LOGDIR = log
+RUNDIR = run
 
 all: $(BINDIR)/main $(BINDIR)/hmi_output $(BINDIR)/hmi_input
 
@@ -20,6 +21,6 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 clean:
-	rm -f $(OBJDIR)/*.o $(BINDIR)/* $(LOGDIR)/*
+	rm -f $(OBJDIR)/*.o $(BINDIR)/* $(LOGDIR)/*  $(RUNDIR)/*
 
 .PHONY: all clean
