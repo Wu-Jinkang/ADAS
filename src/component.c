@@ -7,12 +7,21 @@
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
+#include <signal.h>
 
+void centerStopHandler(int sig)
+{
+    printf("%d Attempted inappropriate read from control terminal\n", sig);
+    exit(1);
+}
+void brakeDangerHandler(int sig);
 int readLine(int fd, char *str);
 int read8(int fd, char *str);
 int throttle_breaks();
 int readLineFromIndex(int fd, char *str, int *index);
 int writeln(int fd, char *str);
+int readPidFile(char *path);
+void initParkAssist();
 
 void initCentralECU()
 {
@@ -65,14 +74,54 @@ void initCentralECU()
                 exit(-1);
             }
             close(fd_log);
+            pid_central = readPidFile("run/central.pid");
+            pid_steer = readPidFile("run/steer.pid");
+            pid_throttle = readPidFile("run/throttle.pid");
+            pid_brake = readPidFile("run/brake.pid");
+            pid_front_camera = readPidFile("run/front_camera.pid");
+            pid_radar = readPidFile("run/radar.pid");
+            // pid_park = readPidFile("run/park.pid");
+            if (strcmp(str, "SINISTRA") == 0 || strcmp(str, "DESTRA") == 0)
+            {
+                int fd_steer = open(STEER_BY_WIRE, O_WRONLY);
+                if (fd_steer == -1)
+                {
+                    perror("open() error");
+                    close(fd_log);
+                    close(fd_steer);
+                    close(fd_central);
+                    exit(-1);
+                }
+                if (writeln(fd_steer, str) == -1)
+                {
+                    perror("write() error");
+                    unlink(STEER_BY_WIRE);
+                    close(fd_log);
+                    close(fd_steer);
+                    close(fd_central);
+                    exit(-1);
+                }
+                close(fd_steer);
+            }
+            else if (strcmp(str, "PERICOLO") == 0)
+            {
+                kill(readPidFile("run/steer.pid"), SIGUSR1);
+            }
+            else if (strcmp(str, "PARCHEGGIO") == 0)
+            {
+                if (fork() == 0)
+                {
+                    createPidFile("run/park.pid");
+                    initParkAssist();
+                }
+            }
+            // printf("%d,%d,%d,%d,%d,%d,%d\n", pid_central, pid_steer, pid_throttle, pid_brake, pid_front_camera, pid_radar, pid_park);
         }
 
-        if (strcmp(str, "ARRESTO") == 0)
-        {
-            break;
-        }
-
-        printf("%d,%d,%d,%d,%d,%d,%d\n", pid_central, pid_steer, pid_throttle, pid_brake, pid_front_camera, pid_radar, pid_park);
+        // if (strcmp(str, "ARRESTO") == 0)
+        // {
+        //     break;
+        // }
     }
 
     sleep(10);
@@ -82,41 +131,56 @@ void initCentralECU()
 void initSteerByWire()
 {
     char str[100], print_str[100];
-    int fd_log, fd_steer, count;
-
-    count = 0;
-    unlink(STEER_BY_WIRE);
-    mknod(STEER_BY_WIRE, S_IFIFO, 0);
-    chmod(STEER_BY_WIRE, 0660);
-    fd_log = open(STEER_LOG, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
-    if (fd_log == -1)
+    int fd_log, fd_steer, count, pfd[2];
+    int action_pipe = pipe(pfd);
+    if (action_pipe != 0)
     {
-        perror("open() error");
+        perror("pipe() error");
         exit(-1);
     }
-
-    while (1)
+    if (fork() == 0)
     {
-        memset(str, 0, sizeof(str));
-
-        fd_steer = open(STEER_BY_WIRE, O_RDONLY);
-
-        if (fd_steer == -1)
+        close(pfd[1]);
+        read(pfd[0], buff, strlen(string1));
+        fd_log = open(STEER_LOG, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
+        if (fd_log == -1)
         {
             perror("open() error");
-            close(fd_steer);
             exit(-1);
         }
-        readLine(fd_steer, str);
-        close(fd_steer);
-
-        if (strcmp(str, "PARCHEGGIO") == 0 || count == 3)
+        for (count = 0; count < 4; ++count)
         {
-            count = 0;
+            printf("%s, %d\n", str, count);
+            if (writeln(fd_log, print_str) == -1)
+            {
+                perror("write() error");
+                unlink(STEER_BY_WIRE);
+                close(fd_log);
+                close(fd_steer);
+                exit(-1);
+            }
+            sleep(1);
         }
-
-        if (count == 0)
+        close(fd_log);
+    }
+    else {
+        unlink(STEER_BY_WIRE);
+        mknod(STEER_BY_WIRE, S_IFIFO, 0);
+        chmod(STEER_BY_WIRE, 0660);
+        while (1)
         {
+            memset(str, 0, sizeof(str));
+
+            fd_steer = open(STEER_BY_WIRE, O_RDONLY);
+
+            if (fd_steer == -1)
+            {
+                perror("open() error");
+                close(fd_steer);
+                exit(-1);
+            }
+            readLine(fd_steer, str);
+            close(fd_steer);
             if (strcmp(str, "SINISTRA") == 0)
             {
                 strcpy(print_str, "STO GIRANDO A SINISTRA");
@@ -129,27 +193,12 @@ void initSteerByWire()
             {
                 strcpy(print_str, "NO ACTION");
             }
+            
+            close(pfd[0]);
         }
 
-        if (writeln(fd_log, print_str) == -1)
-        {
-            perror("write() error");
-            unlink(STEER_BY_WIRE);
-            close(fd_log);
-            close(fd_steer);
-            exit(-1);
-        }
-        count++;
-
-        if (strcmp(str, "ARRESTO") == 0)
-        {
-            break;
-        }
-        sleep(1);
+        unlink(STEER_BY_WIRE);
     }
-
-    unlink(STEER_BY_WIRE);
-    close(fd_log);
 }
 
 void initThrottleControl()
@@ -227,6 +276,7 @@ void initBrakeByWire()
         perror("open() error");
         exit(-1);
     }
+    signal(SIGUSR1, brakeDangerHandler);
 
     while (1)
     {
@@ -248,11 +298,6 @@ void initBrakeByWire()
             CAR_SPEED -= 5;
             sprintf(print_str, "%d:INCREMENTO 5\n", (int)time(NULL));
         }
-        else if (strcmp(str, "ARRESTO") == 0)
-        {
-            CAR_SPEED = 0;
-            strcpy(print_str, "ARRESTO AUTO");
-        }
 
         if (writeln(fd_log, print_str) == -1)
         {
@@ -263,12 +308,6 @@ void initBrakeByWire()
             exit(-1);
         }
 
-        if (strcmp(str, "ARRESTO") == 0)
-        {
-            break;
-        }
-
-        printf("BRAKE\n");
         sleep(1);
     }
 
@@ -325,10 +364,10 @@ void initFrontWindshieldCamera()
         }
         close(fd_central);
 
-        if (strcmp(str, "PARCHEGGIO") == 0 || strcmp(str, "ARRESTO") == 0)
-        {
-            break;
-        }
+        // if (strcmp(str, "PARCHEGGIO") == 0 || strcmp(str, "ARRESTO") == 0)
+        // {
+        //     break;
+        // }
 
         sleep(1);
     }
@@ -460,7 +499,7 @@ int readLine(int fd, char *str)
         str++;
     }
 
-    return (n > 0);
+    return n > 0;
 }
 
 int read8(int fd, char *str)
@@ -498,4 +537,43 @@ int writeln(int fd, char *str)
     strcat(newstr, "\n");
     
     return write(fd, newstr, len + 1);
+}
+
+void brakeDangerHandler(int sig)
+{
+    int fd_log;
+    fd_log = open(BRAKE_LOG, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
+    if (fd_log == -1)
+    {
+        perror("open() error");
+    }
+    CAR_SPEED = 0;
+    if (writeln(fd_log, "ARRESTO AUTO") == -1)
+    {
+        perror("write() error");
+        close(fd_log);
+    }
+}
+
+int readPidFile(char *path)
+{
+    char pid[8];
+    int fd = open(path, O_RDONLY);
+    if (fd == -1)
+    {
+        perror("open() error");
+        exit(-1);
+    }
+
+    // read pid
+    readLine(fd, pid);
+
+    // converting string to number
+    int num = 0;
+    for (int i = 0; pid[i] != '\0'; i++)
+    {
+        num = num * 10 + (pid[i] - 48);
+    }
+
+    return num;
 }

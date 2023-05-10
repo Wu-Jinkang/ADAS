@@ -22,8 +22,8 @@
 
 int CAR_SPEED = 0;
 int pid_central, pid_steer, pid_throttle, pid_brake, pid_front_camera, pid_radar, pid_park;
-#include "component.c"
 void createPidFile(char *path);
+#include "component.c"
 
 int main(int argc, char *argv[])
 {
@@ -68,24 +68,23 @@ int main(int argc, char *argv[])
                 createPidFile("run/throttle.pid");
                 initThrottleControl();
             }
-            else if (i == 3)
+            else if (i == 4)
             {
                 createPidFile("run/brake.pid");
                 initBrakeByWire();
             }
-            else if (i == 4) {
+            else if (i == 5) {
                 createPidFile("run/front_camera.pid");
                 initFrontWindshieldCamera();
             }
-            else if (i == 5)
+            else if (i == 6)
             {
                 createPidFile("run/radar.pid");
                 initForwardFacingRadar();
             }
-            else if (i == 6)
+            else if (i == 7)
             {
-                createPidFile("run/park.pid");
-                initParkAssist();
+                
             }
             exit(0);
         }
@@ -106,6 +105,5 @@ void createPidFile (char *path) {
         exit(-1);
     }
     sprintf(pid, "%d", getpid());
-    printf("%s", pid);
     write(fd, pid, strlen(pid));
 }
