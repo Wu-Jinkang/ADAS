@@ -16,6 +16,7 @@
 #define CAMERA_LOG "log/camera.log"
 #define RADAR_LOG "log/radar.log"
 #define FORWARD_FACING_RADAR "log/forward_facing_radar"
+#define CAR_SPEED "log/car_speed"
 #define FRONT_CAMERA_DATA "res/frontCamera.data"
 #define ASSIST_LOG "log/assist.log"
 #define URANDOM "/dev/urandom"
@@ -24,7 +25,7 @@
 #define READ 0
 #define WRITE 1
 
-int CAR_SPEED = 0;
+// int CAR_SPEED = 0;
 int pid_central, pid_steer, pid_throttle, pid_brake, pid_front_camera, pid_radar, pid_park;
 void createPidFile(char *path);
 void createPipe(char *path);
@@ -58,6 +59,7 @@ int main(int argc, char *argv[])
     createPipe(THROTTLE_CONTROL);
     createPipe(BRAKE_BY_WIRE);
     createPipe(STEER_BY_WIRE);
+    createPipe(CAR_SPEED);
 
     int state = createLog(ECU_LOG) &&
     createLog(STEER_LOG) &&
@@ -72,6 +74,7 @@ int main(int argc, char *argv[])
         unlink(THROTTLE_CONTROL);
         unlink(BRAKE_BY_WIRE);
         unlink(STEER_BY_WIRE);
+        unlink(CAR_SPEED);
         exit(-1);
     }
 

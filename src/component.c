@@ -25,7 +25,7 @@ void initParkAssist();
 
 void initCentralECU()
 {
-    CAR_SPEED = 0;
+    // CAR_SPEED = 0;
     char str[100];
     int fd_log, fd_central, start;
     start = 0;
@@ -49,6 +49,13 @@ void initCentralECU()
         perror("open() error");
         exit(-1);
     }
+    int fd_speed = open(STEER_BY_WIRE, O_WRONLY);
+    if (fd_speed == -1)
+    {
+        perror("open() error");
+        exit(-1);
+    }
+    write(fd_speed, "0", 1);
     while (1)
     {
         memset(str, 0, sizeof(str));
@@ -79,7 +86,12 @@ void initCentralECU()
             }
             else if (strcmp(str, "PERICOLO") == 0)
             {
-                // kill(readPidFile("run/steer.pid"), SIGUSR1);
+                kill(readPidFile("run/steer.pid"), SIGUSR1);
+                if (writeln(fd_log, str) == -1)
+                {
+                    perror("write() error");
+                    exit(-1);
+                }
             }
             else if (strcmp(str, "PARCHEGGIO") == 0)
             {
@@ -162,21 +174,17 @@ void initThrottleControl()
         perror("open() error");
         exit(-1);
     }
+    fd_throttle = open(THROTTLE_CONTROL, O_RDONLY);
+    if (fd_throttle == -1)
+    {
+        perror("open() error");
+        exit(-1);
+    }
 
     while (1)
     {
         memset(str, 0, sizeof(str));
-
-        fd_throttle = open(THROTTLE_CONTROL, O_RDONLY);
-
-        if (fd_throttle == -1)
-        {
-            perror("open() error");
-            close(fd_throttle);
-            exit(-1);
-        }
         readLine(fd_throttle, str);
-        close(fd_throttle);
 
         if (throttle_breaks())
         {
@@ -184,10 +192,9 @@ void initThrottleControl()
             printf("OPS! ACCELERATORE ROTTO!");
             break;
         }
-
         if (strcmp(str, "INCREMENTO 5") == 0)
         {
-            CAR_SPEED += 5;
+            // CAR_SPEED += 5;
             sprintf(print_str, "%d:INCREMENTO 5\n", (int)time(NULL));
             if (writeln(fd_log, print_str) == -1)
             {
@@ -195,12 +202,8 @@ void initThrottleControl()
                 exit(-1);
             }
         }
-
-        if (strcmp(str, "ARRESTO") == 0)
-        {
-            break;
-        }
     }
+    close(fd_throttle);
     close(fd_log);
 }
 
@@ -231,9 +234,9 @@ void initBrakeByWire()
         readLine(fd_brake, str);
         close(fd_brake);
 
-        if (strcmp(str, "FRENO 5") == 0 && CAR_SPEED >= 5)
+        if (strcmp(str, "FRENO 5") == 0) // && CAR_SPEED >= 5
         {
-            CAR_SPEED -= 5;
+            // CAR_SPEED -= 5;
             sprintf(print_str, "%d:INCREMENTO 5\n", (int)time(NULL));
         }
 
@@ -480,7 +483,7 @@ void brakeDangerHandler(int sig)
     {
         perror("open() error");
     }
-    CAR_SPEED = 0;
+    // CAR_SPEED = 0;
     if (writeln(fd_log, "ARRESTO AUTO") == -1)
     {
         perror("write() error");
