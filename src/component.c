@@ -8,6 +8,8 @@
 #include <stdlib.h>
 #include <time.h>
 #include <signal.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 
 void centerStopHandler(int sig)
 {
@@ -28,6 +30,7 @@ void initCentralECU()
     // CAR_SPEED = 0;
     char str[100];
     int fd_log, fd_central, start;
+    struct sockaddr_un name;
     start = 0;
 
     fd_log = open(ECU_LOG, O_WRONLY | O_APPEND);
@@ -43,12 +46,20 @@ void initCentralECU()
         perror("open() error");
         exit(-1);
     }
+    // fd_central = open(CENTRAL_ECU, O_RDONLY);
+    // if (fd_central == -1)
+    // {
+    //     perror("open() error");
+    //     exit(-1);
+    // }
+
     fd_central = open(CENTRAL_ECU, O_RDONLY);
     if (fd_central == -1)
     {
         perror("open() error");
         exit(-1);
     }
+
     int fd_speed = open(STEER_BY_WIRE, O_WRONLY);
     if (fd_speed == -1)
     {
