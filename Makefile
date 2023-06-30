@@ -1,42 +1,40 @@
 CC = gcc
-# CFLAGS = -Wall -Wextra -Werror
-DEPS = conn.h
-OBJDIR = obj
-BINDIR = bin
-SRCDIR = src
-LOGDIR = log
-RUNDIR = run
+CFLAGS = -Wall -Wextra -Werror
+BINDIR := bin
+OBJDIR := obj
+SRCDIR := src
+INCDIR := inc
 
 all: $(BINDIR)/main $(BINDIR)/hmiOutput $(BINDIR)/hmiInput $(BINDIR)/brakeByWire $(BINDIR)/forwardFacingRadar $(BINDIR)/steerByWire $(BINDIR)/throttleControl $(BINDIR)/frontWindshieldCamera
 
 $(BINDIR)/main: $(OBJDIR)/main.o
-	$(CC) $(CFLAGS) -o $@ $^
+	$(CC) -o $@ $^
 
 $(BINDIR)/hmiOutput: $(OBJDIR)/hmiOutput.o
-	$(CC) $(CFLAGS) -o $@ $^
+	$(CC) -o $@ $^
 
-$(BINDIR)/hmiInput: $(OBJDIR)/hmiInput.o
-	$(CC) $(CFLAGS) -o $@ $^
+$(BINDIR)/hmiInput: $(OBJDIR)/hmiInput.o $(OBJDIR)/conn.o
+	$(CC) -o $@ $^
 
-$(BINDIR)/brakeByWire: $(OBJDIR)/brakeByWire.o
-	$(CC) $(CFLAGS) -o $@ $^
+$(BINDIR)/brakeByWire: $(OBJDIR)/brakeByWire.o $(OBJDIR)/conn.o
+	$(CC) -o $@ $^
 
-$(BINDIR)/forwardFacingRadar: $(OBJDIR)/forwardFacingRadar.o
-	$(CC) $(CFLAGS) -o $@ $^
+$(BINDIR)/forwardFacingRadar: $(OBJDIR)/forwardFacingRadar.o $(OBJDIR)/conn.o
+	$(CC) -o $@ $^
 
-$(BINDIR)/steerByWire: $(OBJDIR)/steerByWire.o
-	$(CC) $(CFLAGS) -o $@ $^
+$(BINDIR)/steerByWire: $(OBJDIR)/steerByWire.o $(OBJDIR)/conn.o
+	$(CC) -o $@ $^
 
-$(BINDIR)/throttleControl: $(OBJDIR)/throttleControl.o
-	$(CC) $(CFLAGS) -o $@ $^
+$(BINDIR)/throttleControl: $(OBJDIR)/throttleControl.o $(OBJDIR)/conn.o
+	$(CC) -o $@ $^
 
-$(BINDIR)/frontWindshieldCamera: $(OBJDIR)/frontWindshieldCamera.o
-	$(CC) $(CFLAGS) -o $@ $^
+$(BINDIR)/frontWindshieldCamera: $(OBJDIR)/frontWindshieldCamera.o $(OBJDIR)/conn.o
+	$(CC) -o $@ $^
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) -c $< -I $(INCDIR) -o $@
 
 clean:
-	rm -f $(OBJDIR)/*.o $(BINDIR)/* $(LOGDIR)/*  $(RUNDIR)/*
+	rm -f obj/*.o bin/*
 
 .PHONY: all clean
