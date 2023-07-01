@@ -12,8 +12,18 @@
 int main(int argc, char *argv[])
 {
     int clientFd;
-
+    char processName[] = "parkAssist";
     clientFd = connectToServer();
 
+    while (1)
+    {
+        int result = write(clientFd, processName, strlen(processName) + 1);
+        if (result < 0)
+        {
+            perror("write");
+            exit(1);
+        }
+        sleep(1);
+    }
     return 0;
 }

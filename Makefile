@@ -7,7 +7,7 @@ INCDIR := inc
 
 all: $(BINDIR)/main $(BINDIR)/hmiOutput $(BINDIR)/hmiInput $(BINDIR)/brakeByWire $(BINDIR)/forwardFacingRadar $(BINDIR)/steerByWire $(BINDIR)/throttleControl $(BINDIR)/frontWindshieldCamera
 
-$(BINDIR)/main: $(OBJDIR)/main.o
+$(BINDIR)/main: $(OBJDIR)/main.o $(OBJDIR)/conn.o
 	$(CC) -o $@ $^
 
 $(BINDIR)/hmiOutput: $(OBJDIR)/hmiOutput.o

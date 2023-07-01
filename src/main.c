@@ -10,6 +10,8 @@
 #include <sys/un.h>
 #include <fcntl.h>
 
+#include "conn.h"
+
 #define BRAKE_BY_WIRE "bin/brakeByWire"
 #define FORWARD_FACING_RADAR "bin/forwardFacingRadar"
 #define STEER_BY_WIRE "bin/steerByWire"
@@ -53,31 +55,14 @@ int main(int argc, char *argv[])
     unsigned int speed = 0;
 
     int centralFd, clientFd;
-    socklen_t centralLen, clientLen;
-    struct sockaddr_un centralAddr, clientAddr;
-    centralLen = sizeof(centralAddr);
-    clientLen = sizeof(clientAddr);
-    centralFd = socket(AF_UNIX, SOCK_STREAM, 0);
-    if (centralFd < 0)
-    {
-        perror("socket");
-        exit(EXIT_FAILURE);
-    }
-    centralAddr.sun_family = AF_UNIX;
-    strcpy(centralAddr.sun_path, "central");
-    unlink(centralAddr.sun_path);
-    if (bind(centralFd, (struct sockaddr *)&centralAddr, centralLen) < 0)
-    {
-        perror("bind");
-        exit(EXIT_FAILURE);
-    }
-    if (listen(centralFd, 8) < 0)
-    {
-        perror("listen");
-        exit(EXIT_FAILURE);
-    }
+    centralFd = initServerSocket();
+
     while (1)
     {
+        int clientFd;
+        socklen_t clientLen;
+        struct sockaddr_un clientAddr;
+        clientLen = sizeof(clientAddr);
         printf("Start central ecu, waiting components to connect...\n");
         clientFd = accept(centralFd, (struct sockaddr *)&clientAddr, &clientLen);
         if (clientFd < 0)
@@ -86,17 +71,24 @@ int main(int argc, char *argv[])
             exit(EXIT_FAILURE);
         }
         if (fork() == 0)
-        {  
-            
-        }
-        else
+        {
+            printf("Client fd: %d\n", clientFd);
+            char buffer[1024];
+            int result;
+            while (readLine(clientFd, buffer) <= 0)
+            {
+                printf("%d %d %s\n", clientFd, result, buffer);
+                sleep(1);
+            }
+            printf("%d %d %s\n", clientFd, result, buffer);
             close(clientFd);
+            exit(0);
+        }
     }
 
-
-    // int status;
-    // for (int i = 1; i <= 6; i++)
-    //     wait(&status);
+    int status;
+    for (int i = 1; i <= 6; i++)
+        wait(&status);
 
     return 0;
 } 

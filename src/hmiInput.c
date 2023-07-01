@@ -13,8 +13,15 @@ int main(void)
 {
 
     int clientFd;
-
+    char processName[] = "hmiInput";
     clientFd = connectToServer();
+    while (1)
+    {
+        write(clientFd, processName, strlen(processName) + 1);
+        sleep(10);
+    }
+
+    printf("hmiInput\n");
 
     char input[1024];
     do
