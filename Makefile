@@ -7,28 +7,28 @@ INCDIR := inc
 
 all: $(BINDIR)/main $(BINDIR)/hmiOutput $(BINDIR)/hmiInput $(BINDIR)/brakeByWire $(BINDIR)/forwardFacingRadar $(BINDIR)/steerByWire $(BINDIR)/throttleControl $(BINDIR)/frontWindshieldCamera
 
-$(BINDIR)/main: $(OBJDIR)/main.o $(OBJDIR)/conn.o
+$(BINDIR)/main: $(OBJDIR)/main.o $(OBJDIR)/conn.o $(OBJDIR)/util.o
 	$(CC) -o $@ $^
 
-$(BINDIR)/hmiOutput: $(OBJDIR)/hmiOutput.o
+$(BINDIR)/hmiOutput: $(OBJDIR)/hmiOutput.o $(OBJDIR)/conn.o $(OBJDIR)/util.o
 	$(CC) -o $@ $^
 
-$(BINDIR)/hmiInput: $(OBJDIR)/hmiInput.o $(OBJDIR)/conn.o
+$(BINDIR)/hmiInput: $(OBJDIR)/hmiInput.o $(OBJDIR)/conn.o $(OBJDIR)/util.o
 	$(CC) -o $@ $^
 
-$(BINDIR)/brakeByWire: $(OBJDIR)/brakeByWire.o $(OBJDIR)/conn.o
+$(BINDIR)/brakeByWire: $(OBJDIR)/brakeByWire.o $(OBJDIR)/conn.o $(OBJDIR)/util.o
 	$(CC) -o $@ $^
 
-$(BINDIR)/forwardFacingRadar: $(OBJDIR)/forwardFacingRadar.o $(OBJDIR)/conn.o
+$(BINDIR)/forwardFacingRadar: $(OBJDIR)/forwardFacingRadar.o $(OBJDIR)/conn.o $(OBJDIR)/util.o
 	$(CC) -o $@ $^
 
-$(BINDIR)/steerByWire: $(OBJDIR)/steerByWire.o $(OBJDIR)/conn.o
+$(BINDIR)/steerByWire: $(OBJDIR)/steerByWire.o $(OBJDIR)/conn.o $(OBJDIR)/util.o
 	$(CC) -o $@ $^
 
-$(BINDIR)/throttleControl: $(OBJDIR)/throttleControl.o $(OBJDIR)/conn.o
+$(BINDIR)/throttleControl: $(OBJDIR)/throttleControl.o $(OBJDIR)/conn.o $(OBJDIR)/util.o
 	$(CC) -o $@ $^
 
-$(BINDIR)/frontWindshieldCamera: $(OBJDIR)/frontWindshieldCamera.o $(OBJDIR)/conn.o
+$(BINDIR)/frontWindshieldCamera: $(OBJDIR)/frontWindshieldCamera.o $(OBJDIR)/conn.o $(OBJDIR)/util.o
 	$(CC) -o $@ $^
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.c

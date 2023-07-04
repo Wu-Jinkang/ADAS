@@ -8,20 +8,19 @@
 #include <sys/un.h>
 
 #include "conn.h"
+#include "def.h"
+#include "util.h"
 
 int main(void)
 {
 
     int clientFd;
-    char processName[] = "hmiInput";
+    char componentName[] = "hmiInput";
     clientFd = connectToServer();
-    while (1)
-    {
-        write(clientFd, processName, strlen(processName) + 1);
-        sleep(10);
-    }
+    sendComponentName(clientFd, componentName);
 
-    printf("hmiInput\n");
+    printf("Waiting components initialize\n");
+    sleep(3);
 
     char input[1024];
     do
@@ -39,7 +38,6 @@ int main(void)
             if (write(clientFd, input, len) == -1)
             {
                 perror("write");
-                close(clientFd);
                 exit(EXIT_FAILURE);
             }
             memset(input, 0, sizeof(input));
@@ -47,6 +45,7 @@ int main(void)
         else
             printf("Invalid command\n");
     } while (1);
+
     close(clientFd);
 
     return 0;

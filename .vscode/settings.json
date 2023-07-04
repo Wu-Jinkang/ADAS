@@ -3,6 +3,9 @@
         "stdio.h": "c",
         "typeinfo": "c",
         "cstdlib": "c",
-        "un.h": "c"
+        "un.h": "c",
+        "fcntl.h": "c",
+        "util.h": "c",
+        "signal.h": "c"
     }
 }

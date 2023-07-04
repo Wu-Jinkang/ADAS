@@ -8,23 +8,57 @@
 #include <sys/un.h>
 
 #include "conn.h"
+#include "def.h"
+#include "util.h"
 
 int main(int argc, char *argv[])
 {
     int clientFd;
-    char processName[] = "forwardFacingRadar";
+    char componentName[] = "forwardFacingRadar";
     clientFd = connectToServer();
+    sendComponentName(clientFd, componentName);
+
+    char buffer[1024];
+    int logFd, urandomFd;
+
+    logFd = open(RADAR_LOG, O_WRONLY);
+    if (logFd == -1)
+    {
+        perror("open radar log");
+        exit(EXIT_FAILURE);
+    }
+
+    urandomFd = open(getDataSrc(argv[1]), O_RDONLY);
+    if (urandomFd == -1)
+    {
+        perror("open urandom");
+        exit(EXIT_FAILURE);
+    }
 
     while (1)
     {
-        int result = write(clientFd, processName, strlen(processName) + 1);
-        if (result < 0)
+        memset(buffer, 0, sizeof buffer);
+
+        int byteRead = read8(urandomFd, buffer);
+        if (byteRead == 8)
         {
-            perror("write");
-            exit(1);
+            if (writeln(logFd, buffer) == -1)
+            {
+                perror("write");
+                exit(EXIT_FAILURE);
+            }
+            if (writeln(clientFd, buffer) == -1)
+            {
+                perror("write");
+                exit(EXIT_FAILURE);
+            }
         }
         sleep(1);
     }
+
+    close(logFd);
+    close(urandomFd);
+    close(clientFd);
 
     return 0;
 }

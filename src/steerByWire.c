@@ -8,23 +8,62 @@
 #include <sys/un.h>
 
 #include "conn.h"
+#include "def.h"
+#include "util.h"
 
 int main(int argc, char *argv[])
 {
     int clientFd;
-    char processName[] = "steerByWire";
+    char componentName[] = "steerByWire";
     clientFd = connectToServer();
+    sendComponentName(clientFd, componentName);
+    fcntl(clientFd, F_GETFL, O_NONBLOCK);
+
+    char str[1024], printStr[1024];
+    int logFd, c, repeat;
+
+    logFd = open(STEER_LOG, O_WRONLY);
+    if (logFd == -1)
+    {
+        perror("open steer log");
+        exit(EXIT_FAILURE);
+    }
 
     while (1)
     {
-        int result = write(clientFd, processName, strlen(processName) + 1);
-        if (result < 0)
+        memset(str, 0, sizeof str);
+
+        readLine(clientFd, str);
+        repeat = 1;
+
+        if (strcmp(str, "SINISTRA") == 0)
         {
-            perror("write");
-            exit(1);
+            repeat = 4;
+            strcpy(printStr, "STO GIRANDO A SINISTRA");
         }
-        sleep(1);
+        else if (strcmp(str, "DESTRA") == 0)
+        {
+            repeat = 4;
+            strcpy(printStr, "STO GIRANDO A DESTRA");
+        }
+        else
+        {
+            strcpy(printStr, "NO ACTION");
+        }
+
+        for (c = 0; c < repeat; ++c)
+        {
+            if (writeln(logFd, printStr) == -1)
+            {
+                perror("write");
+                exit(EXIT_FAILURE);
+            }
+
+            sleep(1);
+        }
     }
+
+    close(clientFd);
 
     return 0;
 }

@@ -9,41 +9,23 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <fcntl.h>
+#include <signal.h>
 
 #include "conn.h"
+#include "def.h"
+#include "util.h"
 
-#define BRAKE_BY_WIRE "bin/brakeByWire"
-#define FORWARD_FACING_RADAR "bin/forwardFacingRadar"
-#define STEER_BY_WIRE "bin/steerByWire"
-#define THROTTLE_CONTROL "bin/throttleControl"
-#define FRONT_WINDSHIELD_CAMERA "bin/frontWindshieldCamera"
-#define HMI_INPUT "bin/hmiInput"
-#define HMI_OUTPUT "bin/hmiOutput"
+struct Component {
+    char *name;
+    int fd;
+};
 
-#define ECU_LOG "log/ECU.log"
-#define STEER_LOG "log/steer.log"
-#define THROTTLE_LOG "log/throttle.log"
-#define BRAKE_LOG "log/brake.log"
-#define CAMERA_LOG "log/camera.log"
-#define RADAR_LOG "log/radar.log"
-#define CAR_SPEED "log/car_speed"
-#define ASSIST_LOG "log/assist.log"
-
-#define FRONT_CAMERA_DATA "res/frontCamera.data"
-#define URANDOM "/dev/urandom"
-#define NORMAL "NORMALE"
-#define ARTIFICIAL "ARTIFICIALE"
-#define READ 0
-#define WRITE 1
-
-// int CAR_SPEED = 0;
-int pid_central, pid_steer, pid_throttle, pid_brake, pid_front_camera, pid_radar, pid_park;
-void createPidFile(char *path);
 void createPipe(char *path);
 int createLog(char *path);
 int getMode(char * inputString);
 void initLogFiles(void);
-void execComponents(char* mode);
+void removeLogFiles(void);
+void execComponents(char *mode);
 
 int main(int argc, char *argv[])
 {
@@ -56,34 +38,46 @@ int main(int argc, char *argv[])
 
     int centralFd, clientFd;
     centralFd = initServerSocket();
+    printf("Start central ecu, waiting for connections...\n");
 
-    while (1)
+    struct Component components[6];
+    for (int i = 0; i < 6; ++i)
     {
         int clientFd;
         socklen_t clientLen;
         struct sockaddr_un clientAddr;
         clientLen = sizeof(clientAddr);
-        printf("Start central ecu, waiting components to connect...\n");
         clientFd = accept(centralFd, (struct sockaddr *)&clientAddr, &clientLen);
         if (clientFd < 0)
         {
             perror("accept");
             exit(EXIT_FAILURE);
         }
-        if (fork() == 0)
+
+        char buffer[1024];
+        int result;
+        memset(buffer, 0, sizeof buffer);
+        while (readLine(clientFd, buffer) <= 0)
         {
-            printf("Client fd: %d\n", clientFd);
-            char buffer[1024];
-            int result;
-            while (readLine(clientFd, buffer) <= 0)
-            {
-                printf("%d %d %s\n", clientFd, result, buffer);
-                sleep(1);
-            }
-            printf("%d %d %s\n", clientFd, result, buffer);
-            close(clientFd);
-            exit(0);
+            sleep(1);
         }
+        char ok[] = "ok";
+        result = write(clientFd, ok, strlen(ok) + 1);
+        if (result < 0)
+        {
+            perror("write");
+            exit(1);
+        }
+
+        printf("%s connected\n", buffer);
+        components[i].name = malloc(strlen(buffer) + 1);
+        strcpy(components[i].name, buffer);
+        components[i].fd = clientFd;
+    }
+
+    for (int i = 0; i < 6; ++i)
+    {
+        printf("%s:%d\n", components[i].name, components[i].fd);
     }
 
     int status;
@@ -116,7 +110,8 @@ int createLog (char *path)
 {
     int fd = open(path, O_CREAT, S_IRUSR | S_IWUSR);
     if (fd == -1) {
-        return 0;
+        perror("create log");
+        exit(EXIT_FAILURE);
     }
     close(fd);
     return 1;
@@ -145,6 +140,17 @@ int getMode (char* inputString)
     }
 }
 
+void removeLogFiles (void)
+{
+    remove(ECU_LOG);
+    remove(STEER_LOG);
+    remove(THROTTLE_LOG);
+    remove(BRAKE_LOG);
+    remove(CAMERA_LOG);
+    remove(RADAR_LOG);
+    remove(ASSIST_LOG);
+}
+
 void initLogFiles (void)
 {
     printf("Init log files\n");
@@ -157,13 +163,7 @@ void initLogFiles (void)
                 createLog(ASSIST_LOG);
     if (!state)
     {
-        remove(ECU_LOG);
-        remove(STEER_LOG);
-        remove(THROTTLE_LOG);
-        remove(BRAKE_LOG);
-        remove(CAMERA_LOG);
-        remove(RADAR_LOG);
-        remove(ASSIST_LOG);
+        removeLogFiles();
         printf("Log files creation failed.\n");
         exit(EXIT_FAILURE);
     }
@@ -239,4 +239,10 @@ void execComponents (char* mode)
             }
         }
     }
+}
+
+void handler(int sig)
+{
+    if (sig == SIGINT)
+        printf("PERICOLO!\n");
 }

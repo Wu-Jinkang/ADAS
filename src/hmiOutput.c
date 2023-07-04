@@ -7,52 +7,34 @@
 #include <string.h>
 #include <stdlib.h>
 
-#define ECU_LOG "./log/ECU.log"
-
-int readLineFromIndex(int fd, char *str, int *index);
+#include "def.h"
+#include "util.h"
 
 int main(void)
 {
-    int fd, len, n;
-    size_t str_len = 20;
-    char *str = (char *)calloc(str_len, sizeof(char));
+    int fd, len = 0, n;
+    char str[1024];
 
-    len = 0;
+    fd = open(ECU_LOG, O_RDONLY);
+    if (fd == -1)
+    {
+        perror("open ecu log");
+        exit(EXIT_FAILURE);
+    }
 
     do
     {
-        memset(str, 0, str_len);
-        fd = open(ECU_LOG, O_RDONLY);
-        if (fd == -1)
-        {
-            perror("open() error");
-            return -1;
-        }
-
+        memset(str, 0, sizeof str);
         // Get file string current length
         off_t currentPos = lseek(fd, (size_t)0, SEEK_END);
-
         n = readLineFromIndex(fd, str, &len);
-        close(fd);
         if (currentPos > len)
         {
             len = currentPos;
             printf("%s", str);
         }
-    } while (strcmp(str, "ARRESTO\n") != 0);
+    } while (1);
+    close(fd);
 
-    free(str);
     return 0;
-}
-
-int readLineFromIndex(int fd, char *str, int *index)
-{
-    int n;
-    lseek(fd, *index, SEEK_SET);
-    do
-    {
-        n = read(fd, str, 1);
-    } while (n > 0 && *str++ != '\0');
-
-    return (n > 0);
 }

@@ -6,25 +6,67 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <signal.h>
+#include <time.h>
 
 #include "conn.h"
+#include "def.h"
+#include "util.h"
+
+int throttle_breaks(void);
 
 int main(int argc, char *argv[])
 {
     int clientFd;
-    char processName[] = "throttleControl";
+    char componentName[] = "throttleControl";
     clientFd = connectToServer();
+    sendComponentName(clientFd, componentName);
+
+    char str[100], printStr[100];
+    int logFd, throttleFd;
+
+    logFd = open(THROTTLE_LOG, O_WRONLY);
+    if (logFd == -1)
+    {
+        perror("open throttle log");
+        exit(EXIT_FAILURE);
+    }
+
+    pid_t ppid;
+    ppid = getppid();
 
     while (1)
     {
-        int result = write(clientFd, processName, strlen(processName) + 1);
-        if (result < 0)
+        memset(str, 0, sizeof str);
+
+        readLine(clientFd, str);
+
+        if (throttle_breaks())
         {
-            perror("write");
-            exit(1);
+            kill(ppid, SIGINT);
+            // printf("OPS! ACCELERATORE ROTTO!");
+            break;
         }
-        sleep(1);
+        if (strcmp(str, "INCREMENTO 5") == 0)
+        {
+            sprintf(printStr, "%d:INCREMENTO 5\n", (int)time(NULL));
+
+            if (writeln(logFd, printStr) == -1)
+            {
+                perror("write");
+                exit(EXIT_FAILURE);
+            }
+        }
     }
+    close(throttleFd);
+    close(logFd);
 
     return 0;
+}
+
+int throttle_breaks(void)
+{
+    int probability = 100000;
+    int random_number = rand() % probability;
+    return random_number == 0;
 }

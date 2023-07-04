@@ -6,27 +6,79 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <signal.h>
+#include <time.h>
 
 #include "conn.h"
+#include "def.h"
+#include "util.h"
 
-int main(int argc, char *argv[]) 
+void dangerHandler(int sig);
+
+int main(int argc, char *argv[])
 {
     int clientFd;
-    char processName[] = "brakeByWire";
+    char componentName[] = "brakeByWire";
     clientFd = connectToServer();
+    sendComponentName(clientFd, componentName);
+
+    char str[100], printStr[100];
+    int logFd;
+
+    logFd = open(BRAKE_LOG, O_WRONLY);
+    if (logFd == -1)
+    {
+        perror("open");
+        exit(EXIT_FAILURE);
+    }
+
+    signal(SIGUSR1, dangerHandler);
 
     while (1)
     {
-        printf("start writing\n");
-        int result = write(clientFd, processName, strlen(processName) + 1);
-        if (result < 0)
+        memset(str, 0, sizeof str);
+        readLine(clientFd, str);
+
+        if (strcmp(str, "FRENO 5") == 0)
+        {
+            sprintf(printStr, "%d:DECREMENTO 5\n", (int)time(NULL));
+        }
+
+        if (strcmp(str, "PERICOLO") == 0)
+        {
+            sprintf(printStr, "%d:ARRESTO AUTO\n", (int)time(NULL));
+        }
+
+        if (writeln(logFd, printStr) == -1)
         {
             perror("write");
-            exit(1);
+            exit(EXIT_FAILURE);
         }
+
         sleep(1);
-        printf("end writing\n");
+    }
+    close(logFd);
+    close(clientFd);
+   
+    return 0;
+}
+
+void dangerHandler(int sig)
+{
+    int logFd;
+    char printStr[100];
+    sprintf(printStr, "%d:ARRESTO AUTO\n", (int)time(NULL));
+
+    logFd = open(BRAKE_LOG, O_WRONLY);
+    if (logFd == -1)
+    {
+        perror("open");
+        exit(EXIT_FAILURE);
     }
 
-    return 0;
+    if (writeln(logFd, printStr) == -1)
+    {
+        perror("write");
+        exit(EXIT_FAILURE);
+    }
 }

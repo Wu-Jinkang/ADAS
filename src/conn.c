@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "conn.h"
 
 int initServerSocket(void)
 {
@@ -54,25 +55,25 @@ int connectToServer(void)
     return clientFd;
 }
 
-int readLine(int fd, char *str)
+void sendComponentName(int clientFd, char *name)
 {
-    int n, i = 0;
-
+    int result;
+    char res[3];
     while (1)
     {
-        n = read(fd, str + i, 1);
-        if (n == 0 || *(str + i) == 10 || *(str + i) == '\n' || *(str + i) == '\0')
+        result = write(clientFd, name, strlen(name) + 1);
+        if (result < 0)
         {
-            *(str+i) = '\0';
-            break;
-        }
-        else if (n < 0)
-        {
-            perror("read");
+            perror("write");
             exit(1);
         }
-        i++;
+        memset(res, 0, sizeof res);
+        readLine(clientFd, res);
+        if (strcmp(res, "ok") == 0)
+        {
+            break;
+        }
+        sleep(1);
     }
 
-    return i + 1;
 }
