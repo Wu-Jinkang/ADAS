@@ -15,11 +15,6 @@
 #include "def.h"
 #include "util.h"
 
-struct Component {
-    char *name;
-    int fd;
-};
-
 void createPipe(char *path);
 int createLog(char *path);
 int getMode(char * inputString);
@@ -41,44 +36,61 @@ int main(int argc, char *argv[])
     printf("Start central ecu, waiting for connections...\n");
 
     struct Component components[6];
-    for (int i = 0; i < 6; ++i)
-    {
-        int clientFd;
-        socklen_t clientLen;
-        struct sockaddr_un clientAddr;
-        clientLen = sizeof(clientAddr);
-        clientFd = accept(centralFd, (struct sockaddr *)&clientAddr, &clientLen);
-        if (clientFd < 0)
-        {
-            perror("accept");
-            exit(EXIT_FAILURE);
-        }
-
-        char buffer[1024];
-        int result;
-        memset(buffer, 0, sizeof buffer);
-        while (readLine(clientFd, buffer) <= 0)
-        {
-            sleep(1);
-        }
-        char ok[] = "ok";
-        result = write(clientFd, ok, strlen(ok) + 1);
-        if (result < 0)
-        {
-            perror("write");
-            exit(1);
-        }
-
-        printf("%s connected\n", buffer);
-        components[i].name = malloc(strlen(buffer) + 1);
-        strcpy(components[i].name, buffer);
-        components[i].fd = clientFd;
-    }
 
     for (int i = 0; i < 6; ++i)
     {
-        printf("%s:%d\n", components[i].name, components[i].fd);
+        components[i] = connectToComponent(centralFd);
+        int flags = fcntl(components[i].fd, F_GETFL, 0);
+        fcntl(components[i].fd, F_SETFL, flags | O_NONBLOCK);
     }
+
+    int hmiInput, steerByWire, brakeByWire, throttleControl, forwardFacingRadar, frontWindshieldCamera; //index
+
+    for (int i = 0; i < 6; ++i)
+    {
+        if (strcmp(components[i].name, "hmiInput") == 0)
+        {
+            hmiInput = i;
+            sendOk(components[hmiInput].fd); // Start listen user input
+            char userInput[1024];
+            while (1)
+            {
+                if (readLine(components[hmiInput].fd, userInput) > 0)
+                {
+                    if (strcmp(userInput, "INIZIO") == 0)
+                    {
+                        printf("%s\n", "User input INIZIO");
+                    }
+                }
+                sleep(1);
+            }
+        }
+        if (strcmp(components[i].name, "steerByWire") == 0)
+        {
+            steerByWire = i;
+        }
+        if (strcmp(components[i].name, "brakeByWire") == 0)
+        {
+            brakeByWire = i;
+        }
+        if (strcmp(components[i].name, "forwardFacingRadar") == 0)
+        {
+            forwardFacingRadar = i;
+        }
+        if (strcmp(components[i].name, "frontWindshieldCamera") == 0)
+        {
+            frontWindshieldCamera = i;
+        }
+        if (strcmp(components[i].name, "throttleControl") == 0)
+        {
+            throttleControl = i;
+        }
+    }
+
+    // while (1)
+    // {
+
+    // }
 
     int status;
     for (int i = 1; i <= 6; i++)

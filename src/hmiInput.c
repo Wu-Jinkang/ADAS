@@ -19,12 +19,15 @@ int main(void)
     clientFd = connectToServer();
     sendComponentName(clientFd, componentName);
 
-    printf("Waiting components initialize\n");
-    sleep(3);
+    printf("Waiting for components initialize: ");
+
+    waitOk(clientFd);
+    printf("Done\n");
 
     char input[1024];
     do
     {
+        memset(input, 0, sizeof(input));
         printf("Enter a command: ");
 
         if (scanf("%s", input) == EOF)
@@ -35,12 +38,11 @@ int main(void)
         if (strcmp(input, "INIZIO") == 0 || strcmp(input, "PARCHEGGIO") == 0 || strcmp(input, "ARRESTO") == 0)
         {
             size_t len = strlen(input);
-            if (write(clientFd, input, len) == -1)
+            if (write(clientFd, input, len + 1) == -1)
             {
                 perror("write");
                 exit(EXIT_FAILURE);
             }
-            memset(input, 0, sizeof(input));
         }
         else
             printf("Invalid command\n");

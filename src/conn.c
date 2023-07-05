@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "conn.h"
+#include "def.h"
 
 int initServerSocket(void)
 {
@@ -55,25 +56,88 @@ int connectToServer(void)
     return clientFd;
 }
 
-void sendComponentName(int clientFd, char *name)
+struct Component connectToComponent(int centralFd)
 {
-    int result;
-    char res[3];
-    while (1)
+    struct Component c1;
+    int clientFd;
+    socklen_t clientLen;
+    struct sockaddr_un clientAddr;
+    clientLen = sizeof(clientAddr);
+    clientFd = accept(centralFd, (struct sockaddr *)&clientAddr, &clientLen);
+    if (clientFd < 0)
     {
-        result = write(clientFd, name, strlen(name) + 1);
-        if (result < 0)
-        {
-            perror("write");
-            exit(1);
-        }
-        memset(res, 0, sizeof res);
-        readLine(clientFd, res);
-        if (strcmp(res, "ok") == 0)
-        {
-            break;
-        }
+        perror("accept");
+        exit(EXIT_FAILURE);
+    }
+
+    char buffer[1024];
+    int result;
+    
+    memset(buffer, 0, sizeof buffer);
+    while (readLine(clientFd, buffer) <= 0)
+    {
         sleep(1);
     }
 
+    sendOk(clientFd);
+
+    c1.name = malloc(strlen(buffer) + 1);
+    strcpy(c1.name, buffer);
+
+    int pid;
+    while (read(clientFd, &pid, sizeof pid) <= 0)
+    {
+        sleep(1);
+    }
+
+
+    printf("%s[%d]: connected\n", buffer, pid);
+    c1.fd = clientFd;
+    c1.pid = pid;
+
+    return c1;
+}
+
+void sendComponentName(int clientFd, char *name)
+{
+    int result, pid;
+    result = write(clientFd, name, strlen(name) + 1);
+    if (result < 0)
+    {
+        perror("write");
+        exit(1);
+    }
+
+    waitOk(clientFd);
+
+    pid = getpid();
+    result = write(clientFd, &pid, sizeof pid);
+    if (result < 0)
+    {
+        perror("write");
+        exit(1);
+    }
+}
+
+void sendOk(int clientFd)
+{
+    char ok[] = "ok";
+    int result = write(clientFd, ok, strlen(ok) + 1);
+    if (result < 0)
+    {
+        perror("write");
+        exit(1);
+    }
+}
+
+void waitOk(int clientFd)
+{
+    char res[3];
+    memset(res, 0, sizeof res);
+    while (!(read(clientFd, res, sizeof res) > 0 && strcmp(res, "ok") == 0))
+    {
+        memset(res, 0, sizeof res);
+        printf("%s\n", res);
+        sleep(1);
+    }
 }

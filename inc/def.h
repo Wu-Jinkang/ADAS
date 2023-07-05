@@ -21,10 +21,17 @@
 
 #define FRONT_CAMERA_DATA "res/frontCamera.data"
 #define URANDOM "/dev/urandom"
-#define URANDOM_ARTIFICIAL "/res/urandomARTIFICIALE.binary"
+#define URANDOM_ARTIFICIAL "res/urandomARTIFICIALE.binary"
 #define NORMAL "NORMALE"
 #define ARTIFICIAL "ARTIFICIALE"
 #define READ 0
 #define WRITE 1
+
+struct Component
+{
+    char *name;
+    int fd;
+    int pid;
+};
 
 #endif
