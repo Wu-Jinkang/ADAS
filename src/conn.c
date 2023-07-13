@@ -98,11 +98,22 @@ struct Component connectToComponent(int centralFd)
     return c1;
 }
 
+void sendMsg(int clientFd, char *msg)
+{
+    int result;
+    result = write(clientFd, msg, strlen(msg) + 1);
+    if (result < 0)
+    {
+        perror("write");
+        exit(1);
+    }
+}
+
 void sendComponentName(int clientFd, char *name)
 {
-    int result, pid;
     sendC(clientFd, name);
-    pid = getpid();
+    int pid = getpid();
+    int result;
     result = write(clientFd, &pid, sizeof pid);
     if (result < 0)
     {
@@ -113,26 +124,14 @@ void sendComponentName(int clientFd, char *name)
 
 void sendC(int clientFd, char *buffer)
 {
-    int result;
-    result = write(clientFd, buffer, strlen(buffer) + 1);
-    if (result < 0)
-    {
-        perror("write");
-        exit(1);
-    }
-
+    sendMsg(clientFd, buffer);
     waitOk(clientFd);
 }
 
 void sendOk(int clientFd)
 {
     char ok[] = "ok";
-    int result = write(clientFd, ok, strlen(ok) + 1);
-    if (result < 0)
-    {
-        perror("write");
-        exit(1);
-    }
+    sendMsg(clientFd, ok);
 }
 
 void waitOk(int clientFd)
@@ -142,7 +141,6 @@ void waitOk(int clientFd)
     while (!(read(clientFd, res, sizeof res) > 0 && strcmp(res, "ok") == 0))
     {
         memset(res, 0, sizeof res);
-        printf("%s\n", res);
         sleep(1);
     }
 }

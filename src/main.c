@@ -15,7 +15,6 @@
 #include "def.h"
 #include "util.h"
 
-void createPipe(char *path);
 int createLog(char *path);
 int getMode(char * inputString);
 void initLogFiles(void);
@@ -44,7 +43,7 @@ int main(int argc, char *argv[])
         fcntl(components[i].fd, F_SETFL, flags | O_NONBLOCK);
     }
 
-    int hmiInput, steerByWire, brakeByWire, throttleControl, forwardFacingRadar, frontWindshieldCamera; //index
+    int hmiInput, steerByWire, brakeByWire, throttleControl, forwardFacingRadar, frontWindshieldCamera; // Index
 
     for (int i = 0; i < 6; ++i)
     {
@@ -57,9 +56,9 @@ int main(int argc, char *argv[])
                 memset(components[hmiInput].buffer, 0, sizeof components[hmiInput].buffer);
                 if (readLine(components[hmiInput].fd, components[hmiInput].buffer) > 0)
                 {
+                    sendOk(components[hmiInput].fd);
                     if (strcmp(components[hmiInput].buffer, "INIZIO") == 0)
                     {
-                        printf("%s\n", "User input INIZIO");
                         break;
                     }
                 }
@@ -88,34 +87,102 @@ int main(int argc, char *argv[])
         }
     }
 
+    unsigned int readSpeed = 0, danger = 0, increment = 0, decrement = 0, suspend = 0;
+
+    int logFd = open(ECU_LOG, O_WRONLY);
+    if (logFd == -1)
+    {
+        perror("open throttle log");
+        exit(EXIT_FAILURE);
+    }
+
     while (1)
     {
-        int print = 0;
         memset(components[hmiInput].buffer, 0, sizeof components[hmiInput].buffer);
         if (readLine(components[hmiInput].fd, components[hmiInput].buffer) > 0)
         {
-            print = 1;
             sendOk(components[hmiInput].fd);
+            if (strcmp(components[hmiInput].buffer, "PARCHEGGIO") == 0)
+            {
+
+            }
+
+            if (strcmp(components[hmiInput].buffer, "ARRESTO") == 0)
+            {
+
+            }
+
+            if (strcmp(components[hmiInput].buffer, "INIZIO") == 0)
+            {
+                suspend = 0; // Restart from status danger
+            }
         }
 
         memset(components[forwardFacingRadar].buffer, 0, sizeof components[forwardFacingRadar].buffer);
         if (readLine(components[forwardFacingRadar].fd, components[forwardFacingRadar].buffer) > 0)
         {
-            print = 1;
             sendOk(components[forwardFacingRadar].fd);
         }
 
         memset(components[frontWindshieldCamera].buffer, 0, sizeof components[frontWindshieldCamera].buffer);
-        if (readLine(components[frontWindshieldCamera].fd, components[frontWindshieldCamera].buffer) > 0)
+        if (!suspend && readLine(components[frontWindshieldCamera].fd, components[frontWindshieldCamera].buffer) > 0)
         {
-            print = 1;
             sendOk(components[frontWindshieldCamera].fd);
+            if (isNumber(components[frontWindshieldCamera].buffer)) // Read a number
+            {
+                readSpeed = toNumber(components[frontWindshieldCamera].buffer);
+            }
+
+            if (strcmp(components[frontWindshieldCamera].buffer, "DESTRA") == 0 || strcmp(components[frontWindshieldCamera].buffer, "SINISTRA") == 0)
+            {
+                writeln(logFd, components[frontWindshieldCamera].buffer);
+                sendMsg(components[steerByWire].fd, components[frontWindshieldCamera].buffer); // Send comand to steer by wire
+            }
+
+            if (strcmp(components[frontWindshieldCamera].buffer, "PERICOLO") == 0)
+            {
+                writeln(logFd, "PERICOLO");
+                kill(components[brakeByWire].pid, SIGUSR2); // Send signal to brake by wire
+                suspend = 1;                                // suspend until user input INIZIO
+                speed = 0;                              
+            }
         }
 
-        if (print)
+        if (!suspend)
         {
-            printf("hmiInput: %s, forward facing radar: %s, front windshield camera: %s\n",
-                   components[hmiInput].buffer, components[forwardFacingRadar].buffer, components[frontWindshieldCamera].buffer);
+            // increment speed
+            memset(components[throttleControl].buffer, 0, sizeof components[throttleControl].buffer);          // Reset buffer
+            if (increment || readLine(components[throttleControl].fd, components[throttleControl].buffer) > 0) // Throttle control ready to update
+            {
+                increment = 1;
+                if (speed < readSpeed)
+                {
+                    speed += 5;
+                    writeln(logFd, "INCREMENTO 5");
+                    sendMsg(components[throttleControl].fd, "INCREMENTO 5");
+                    increment = 0;
+                }
+            }
+
+            // decrement speed
+            memset(components[brakeByWire].buffer, 0, sizeof components[brakeByWire].buffer);          // Reset buffer
+            if (decrement || readLine(components[brakeByWire].fd, components[brakeByWire].buffer) > 0) // Brake by wire ready to update
+            {
+                decrement = 1;
+                if (speed > readSpeed)
+                {
+                    speed -= 5;
+                    writeln(logFd, "FRENO 5");
+                    sendMsg(components[brakeByWire].fd, "FRENO 5");
+                    decrement = 0;
+                }
+            }
+        }
+        
+        if (strlen(components[hmiInput].buffer) > 0 || strlen(components[forwardFacingRadar].buffer) > 0 || strlen(components[frontWindshieldCamera].buffer) > 0)
+        {
+            // printf("hmiInput: %s, forward facing radar: %s, front windshield camera: %s, speed: %d, readSpeed: %d\n",
+            //        components[hmiInput].buffer, components[forwardFacingRadar].buffer, components[frontWindshieldCamera].buffer, speed, readSpeed);
         }
 
         usleep(100000); // 0.1 s
@@ -138,13 +205,6 @@ void createPidFile (char *path) {
     }
     sprintf(pid, "%d", getpid());
     write(fd, pid, strlen(pid));
-}
-
-void createPipe (char *path)
-{
-    unlink(path);
-    mknod(path, S_IFIFO, 0);
-    chmod(path, 0660);
 }
 
 int createLog (char *path) 
@@ -194,6 +254,7 @@ void removeLogFiles (void)
 
 void initLogFiles (void)
 {
+    removeLogFiles();
     printf("Init log files\n");
     int state = createLog(ECU_LOG) &&
                 createLog(STEER_LOG) &&

@@ -17,7 +17,8 @@ int main(int argc, char *argv[])
     char componentName[] = "steerByWire";
     clientFd = connectToServer();
     sendComponentName(clientFd, componentName);
-    fcntl(clientFd, F_GETFL, O_NONBLOCK);
+    int flags = fcntl(clientFd, F_GETFL, 0);
+    fcntl(clientFd, F_SETFL, flags | O_NONBLOCK);
 
     char str[1024], printStr[1024];
     int logFd, c, repeat;

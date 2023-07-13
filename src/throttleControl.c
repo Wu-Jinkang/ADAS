@@ -38,7 +38,7 @@ int main(int argc, char *argv[])
     while (1)
     {
         memset(str, 0, sizeof str);
-
+        sendOk(clientFd);
         readLine(clientFd, str);
 
         if (throttle_breaks())
@@ -47,9 +47,10 @@ int main(int argc, char *argv[])
             // printf("OPS! ACCELERATORE ROTTO!");
             break;
         }
+
         if (strcmp(str, "INCREMENTO 5") == 0)
         {
-            sprintf(printStr, "%d:INCREMENTO 5\n", (int)time(NULL));
+            sprintf(printStr, "%d:INCREMENTO 5", (int)time(NULL));
 
             if (writeln(logFd, printStr) == -1)
             {
@@ -57,6 +58,8 @@ int main(int argc, char *argv[])
                 exit(EXIT_FAILURE);
             }
         }
+
+        sleep(1);
     }
     close(throttleFd);
     close(logFd);

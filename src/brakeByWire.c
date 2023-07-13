@@ -37,16 +37,17 @@ int main(int argc, char *argv[])
     while (1)
     {
         memset(str, 0, sizeof str);
+        sendOk(clientFd);
         readLine(clientFd, str);
 
         if (strcmp(str, "FRENO 5") == 0)
         {
-            sprintf(printStr, "%d:DECREMENTO 5\n", (int)time(NULL));
+            sprintf(printStr, "%d:DECREMENTO 5", (int)time(NULL));
         }
 
         if (strcmp(str, "PERICOLO") == 0)
         {
-            sprintf(printStr, "%d:ARRESTO AUTO\n", (int)time(NULL));
+            sprintf(printStr, "%d:ARRESTO AUTO", (int)time(NULL));
         }
 
         if (writeln(logFd, printStr) == -1)

@@ -6,5 +6,7 @@ int writeln(int fd, char *str);
 int readLine(int fd, char *str);
 char* getDataSrcUrandom(char *mode);
 int read8(int fd, char *str);
+int isNumber(char *str);
+int toNumber(char *str);
 
 #endif

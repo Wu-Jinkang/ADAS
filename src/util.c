@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
+#include <ctype.h>
 #include "util.h"
 #include "def.h"
 
@@ -63,4 +64,29 @@ int read8(int fd, char *str)
     sprintf(str, "%04X", *buffer);
 
     return n;
+}
+
+int isNumber(char *str)
+{
+    for (int i = 0, len = strlen(str); i < len; i++)
+    {
+        if (!isdigit(str[i]))
+        {
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
+int toNumber(char *str)
+{
+    int num = 0;
+
+    for (int i = 0; str[i] != '\0'; i++)
+    {
+        num = num * 10 + (str[i] - 48);
+    }
+
+    return num;
 }
