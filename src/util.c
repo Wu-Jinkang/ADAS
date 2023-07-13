@@ -53,7 +53,7 @@ char* getDataSrcUrandom(char *mode)
 
 int read8(int fd, char *str)
 {
-    unsigned int buffer[8];
+    unsigned long int buffer[8];
     ssize_t n = 0;
     n = read(fd, buffer, 8);
     if (n < 0)
@@ -61,7 +61,8 @@ int read8(int fd, char *str)
         perror("read");
         exit(EXIT_FAILURE);
     }
-    sprintf(str, "%04X", *buffer);
+
+    sprintf(str, "%016lX", *buffer);
 
     return n;
 }
