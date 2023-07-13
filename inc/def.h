@@ -32,6 +32,7 @@ struct Component
     char *name;
     int fd;
     int pid;
+    char buffer[1024];
 };
 
 #endif

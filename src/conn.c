@@ -1,3 +1,4 @@
+#include <string.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
@@ -90,7 +91,6 @@ struct Component connectToComponent(int centralFd)
         sleep(1);
     }
 
-
     printf("%s[%d]: connected\n", buffer, pid);
     c1.fd = clientFd;
     c1.pid = pid;
@@ -101,15 +101,7 @@ struct Component connectToComponent(int centralFd)
 void sendComponentName(int clientFd, char *name)
 {
     int result, pid;
-    result = write(clientFd, name, strlen(name) + 1);
-    if (result < 0)
-    {
-        perror("write");
-        exit(1);
-    }
-
-    waitOk(clientFd);
-
+    sendC(clientFd, name);
     pid = getpid();
     result = write(clientFd, &pid, sizeof pid);
     if (result < 0)
@@ -117,6 +109,19 @@ void sendComponentName(int clientFd, char *name)
         perror("write");
         exit(1);
     }
+}
+
+void sendC(int clientFd, char *buffer)
+{
+    int result;
+    result = write(clientFd, buffer, strlen(buffer) + 1);
+    if (result < 0)
+    {
+        perror("write");
+        exit(1);
+    }
+
+    waitOk(clientFd);
 }
 
 void sendOk(int clientFd)

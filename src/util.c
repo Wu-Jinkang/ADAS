@@ -45,20 +45,22 @@ int readLine(int fd, char *str)
     return n > 0;
 }
 
-char* getDataSrc(char *mode)
+char* getDataSrcUrandom(char *mode)
 {
     return strcmp(mode, "ARTIFICIALE") == 0 ? URANDOM_ARTIFICIAL : URANDOM;
 }
 
 int read8(int fd, char *str)
 {
+    unsigned int buffer[8];
     ssize_t n = 0;
-    n = read(fd, str, 8);
+    n = read(fd, buffer, 8);
     if (n < 0)
     {
         perror("read");
         exit(EXIT_FAILURE);
     }
-    
+    sprintf(str, "%04X", *buffer);
+
     return n;
 }

@@ -27,7 +27,7 @@ int main(int argc, char *argv[])
         perror("open park log");
         exit(EXIT_FAILURE);
     }
-    urandomFd = open(getDataSrc(argv[1]), O_RDONLY);
+    urandomFd = open(getDataSrcUrandom(argv[1]), O_RDONLY);
     if (urandomFd == -1)
     {
         perror("open urandom");

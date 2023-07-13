@@ -18,7 +18,7 @@ int main(int argc, char *argv[])
     clientFd = connectToServer();
     sendComponentName(clientFd, componentName);
 
-    char str[100];
+    char buffer[100];
     int logFd, cameraFd;
 
     logFd = open(CAMERA_LOG, O_WRONLY);
@@ -37,20 +37,16 @@ int main(int argc, char *argv[])
 
     while (1)
     {
-        memset(str, 0, sizeof(str));
+        memset(buffer, 0, sizeof(buffer));
 
-        readLine(cameraFd, str);
-        if (writeln(logFd, str) == -1)
+        readLine(cameraFd, buffer);
+        if (writeln(logFd, buffer) == -1)
         {
             perror("write");
             exit(EXIT_FAILURE);
         }
 
-        if (writeln(clientFd, str) == -1)
-        {
-            perror("write");
-            exit(EXIT_FAILURE);
-        }
+        sendC(clientFd, buffer);
 
         sleep(1);
     }

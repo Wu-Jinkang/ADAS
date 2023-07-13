@@ -38,11 +38,7 @@ int main(void)
         if (strcmp(input, "INIZIO") == 0 || strcmp(input, "PARCHEGGIO") == 0 || strcmp(input, "ARRESTO") == 0)
         {
             size_t len = strlen(input);
-            if (write(clientFd, input, len + 1) == -1)
-            {
-                perror("write");
-                exit(EXIT_FAILURE);
-            }
+            sendC(clientFd, input);
         }
         else
             printf("Invalid command\n");

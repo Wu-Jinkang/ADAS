@@ -52,14 +52,15 @@ int main(int argc, char *argv[])
         {
             hmiInput = i;
             sendOk(components[hmiInput].fd); // Start listen user input
-            char userInput[1024];
             while (1)
             {
-                if (readLine(components[hmiInput].fd, userInput) > 0)
+                memset(components[hmiInput].buffer, 0, sizeof components[hmiInput].buffer);
+                if (readLine(components[hmiInput].fd, components[hmiInput].buffer) > 0)
                 {
-                    if (strcmp(userInput, "INIZIO") == 0)
+                    if (strcmp(components[hmiInput].buffer, "INIZIO") == 0)
                     {
                         printf("%s\n", "User input INIZIO");
+                        break;
                     }
                 }
                 sleep(1);
@@ -87,10 +88,38 @@ int main(int argc, char *argv[])
         }
     }
 
-    // while (1)
-    // {
+    while (1)
+    {
+        int print = 0;
+        memset(components[hmiInput].buffer, 0, sizeof components[hmiInput].buffer);
+        if (readLine(components[hmiInput].fd, components[hmiInput].buffer) > 0)
+        {
+            print = 1;
+            sendOk(components[hmiInput].fd);
+        }
 
-    // }
+        memset(components[forwardFacingRadar].buffer, 0, sizeof components[forwardFacingRadar].buffer);
+        if (readLine(components[forwardFacingRadar].fd, components[forwardFacingRadar].buffer) > 0)
+        {
+            print = 1;
+            sendOk(components[forwardFacingRadar].fd);
+        }
+
+        memset(components[frontWindshieldCamera].buffer, 0, sizeof components[frontWindshieldCamera].buffer);
+        if (readLine(components[frontWindshieldCamera].fd, components[frontWindshieldCamera].buffer) > 0)
+        {
+            print = 1;
+            sendOk(components[frontWindshieldCamera].fd);
+        }
+
+        if (print)
+        {
+            printf("hmiInput: %s, forward facing radar: %s, front windshield camera: %s\n",
+                   components[hmiInput].buffer, components[forwardFacingRadar].buffer, components[frontWindshieldCamera].buffer);
+        }
+
+        usleep(100000); // 0.1 s
+    }
 
     int status;
     for (int i = 1; i <= 6; i++)

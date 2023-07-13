@@ -28,7 +28,7 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    urandomFd = open(getDataSrc(argv[1]), O_RDONLY);
+    urandomFd = open(getDataSrcUrandom(argv[1]), O_RDONLY);
     if (urandomFd == -1)
     {
         perror("open urandom");
@@ -47,11 +47,7 @@ int main(int argc, char *argv[])
                 perror("write");
                 exit(EXIT_FAILURE);
             }
-            if (writeln(clientFd, buffer) == -1)
-            {
-                perror("write");
-                exit(EXIT_FAILURE);
-            }
+            sendC(clientFd, buffer);
         }
         sleep(1);
     }
