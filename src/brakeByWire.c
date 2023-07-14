@@ -13,17 +13,18 @@
 #include "def.h"
 #include "util.h"
 
+int logFd;
+
 void dangerHandler(int sig);
 
 int main(int argc, char *argv[])
 {
     int clientFd;
     char componentName[] = "brakeByWire";
-    clientFd = connectToServer();
+    clientFd = connectToServer("central");
     sendComponentName(clientFd, componentName);
 
     char str[100], printStr[100];
-    int logFd;
 
     logFd = open(BRAKE_LOG, O_WRONLY);
     if (logFd == -1)
@@ -32,7 +33,7 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    signal(SIGUSR1, dangerHandler);
+    signal(SIGUSR2, dangerHandler);
 
     while (1)
     {
@@ -43,11 +44,6 @@ int main(int argc, char *argv[])
         if (strcmp(str, "FRENO 5") == 0)
         {
             sprintf(printStr, "%d:DECREMENTO 5", (int)time(NULL));
-        }
-
-        if (strcmp(str, "PERICOLO") == 0)
-        {
-            sprintf(printStr, "%d:ARRESTO AUTO", (int)time(NULL));
         }
 
         if (writeln(logFd, printStr) == -1)
@@ -66,16 +62,8 @@ int main(int argc, char *argv[])
 
 void dangerHandler(int sig)
 {
-    int logFd;
     char printStr[100];
-    sprintf(printStr, "%d:ARRESTO AUTO\n", (int)time(NULL));
-
-    logFd = open(BRAKE_LOG, O_WRONLY);
-    if (logFd == -1)
-    {
-        perror("open");
-        exit(EXIT_FAILURE);
-    }
+    sprintf(printStr, "%d:ARRESTO AUTO", (int)time(NULL));
 
     if (writeln(logFd, printStr) == -1)
     {

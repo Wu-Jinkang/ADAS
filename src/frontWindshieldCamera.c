@@ -15,7 +15,7 @@ int main(int argc, char *argv[])
 {
     int clientFd;
     char componentName[] = "frontWindshieldCamera";
-    clientFd = connectToServer();
+    clientFd = connectToServer("central");
     sendComponentName(clientFd, componentName);
 
     char buffer[100];

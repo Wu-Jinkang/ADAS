@@ -16,7 +16,7 @@ int main(void)
 
     int clientFd;
     char componentName[] = "hmiInput";
-    clientFd = connectToServer();
+    clientFd = connectToServer("central");
     sendComponentName(clientFd, componentName);
 
     printf("Waiting for components initialize: ");

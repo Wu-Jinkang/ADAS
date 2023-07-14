@@ -5,7 +5,7 @@ OBJDIR := obj
 SRCDIR := src
 INCDIR := inc
 
-all: $(BINDIR)/main $(BINDIR)/hmiOutput $(BINDIR)/hmiInput $(BINDIR)/brakeByWire $(BINDIR)/forwardFacingRadar $(BINDIR)/steerByWire $(BINDIR)/throttleControl $(BINDIR)/frontWindshieldCamera
+all: $(BINDIR)/main $(BINDIR)/hmiOutput $(BINDIR)/hmiInput $(BINDIR)/brakeByWire $(BINDIR)/forwardFacingRadar $(BINDIR)/steerByWire $(BINDIR)/throttleControl $(BINDIR)/frontWindshieldCamera ${BINDIR}/parkAssist ${BINDIR}/surroundViewCameras
 
 $(BINDIR)/main: $(OBJDIR)/main.o $(OBJDIR)/conn.o $(OBJDIR)/util.o
 	$(CC) -o $@ $^
@@ -29,6 +29,12 @@ $(BINDIR)/throttleControl: $(OBJDIR)/throttleControl.o $(OBJDIR)/conn.o $(OBJDIR
 	$(CC) -o $@ $^
 
 $(BINDIR)/frontWindshieldCamera: $(OBJDIR)/frontWindshieldCamera.o $(OBJDIR)/conn.o $(OBJDIR)/util.o
+	$(CC) -o $@ $^
+
+${BINDIR}/surroundViewCameras: $(OBJDIR)/surroundViewCameras.o $(OBJDIR)/conn.o $(OBJDIR)/util.o
+	$(CC) -o $@ $^
+
+${BINDIR}/parkAssist: $(OBJDIR)/parkAssist.o $(OBJDIR)/conn.o $(OBJDIR)/util.o
 	$(CC) -o $@ $^
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.c

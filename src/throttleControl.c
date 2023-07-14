@@ -8,27 +8,34 @@
 #include <sys/un.h>
 #include <signal.h>
 #include <time.h>
+#include <limits.h>
 
 #include "conn.h"
 #include "def.h"
 #include "util.h"
 
-int throttle_breaks(void);
+int throttle_breaks(int fd);
 
 int main(int argc, char *argv[])
 {
     int clientFd;
     char componentName[] = "throttleControl";
-    clientFd = connectToServer();
+    clientFd = connectToServer("central");
     sendComponentName(clientFd, componentName);
 
     char str[100], printStr[100];
-    int logFd, throttleFd;
+    int logFd, randomFd;
 
     logFd = open(THROTTLE_LOG, O_WRONLY);
     if (logFd == -1)
     {
         perror("open throttle log");
+        exit(EXIT_FAILURE);
+    }
+    randomFd = open(getDataSrcRandom(argv[1]), O_RDONLY);
+    if (randomFd == -1)
+    {
+        perror("open urandom");
         exit(EXIT_FAILURE);
     }
 
@@ -41,10 +48,9 @@ int main(int argc, char *argv[])
         sendOk(clientFd);
         readLine(clientFd, str);
 
-        if (throttle_breaks())
+        if (throttle_breaks(randomFd))
         {
-            kill(ppid, SIGINT);
-            // printf("OPS! ACCELERATORE ROTTO!");
+            kill(ppid, SIGUSR1);
             break;
         }
 
@@ -61,15 +67,25 @@ int main(int argc, char *argv[])
 
         sleep(1);
     }
-    close(throttleFd);
     close(logFd);
-
+    close(randomFd);
+    close(clientFd);
+   
     return 0;
 }
 
-int throttle_breaks(void)
+int throttle_breaks(int fd)
 {
-    int probability = 100000;
-    int random_number = rand() % probability;
-    return random_number == 0;
+    unsigned int randomNumber;
+    int result = read(fd, &randomNumber, sizeof randomNumber);
+    if (result < 0)
+    {
+        perror("read random");
+        exit(EXIT_FAILURE);
+    }
+    double probability = (double)randomNumber / (double)UINT_MAX;
+    return probability <= 0.00001;
+    /*
+        DA PENSARE NUOVAMENTE COME SIMULARE
+    */
 }

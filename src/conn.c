@@ -8,7 +8,7 @@
 #include "conn.h"
 #include "def.h"
 
-int initServerSocket(void)
+int initServerSocket(char *name)
 {
     int centralFd;
     socklen_t centralLen;
@@ -21,7 +21,7 @@ int initServerSocket(void)
         exit(EXIT_FAILURE);
     }
     centralAddr.sun_family = AF_UNIX;
-    strcpy(centralAddr.sun_path, "central");
+    strcpy(centralAddr.sun_path, name);
     unlink(centralAddr.sun_path);
     if (bind(centralFd, (struct sockaddr *)&centralAddr, centralLen) < 0)
     {
@@ -37,7 +37,7 @@ int initServerSocket(void)
     return centralFd;
 }
 
-int connectToServer(void)
+int connectToServer(char *name)
 {
     int clientFd, serverLen, result;
     struct sockaddr_un serverUNIXAddress;
@@ -46,7 +46,7 @@ int connectToServer(void)
     serverLen = sizeof(serverUNIXAddress);
     clientFd = socket(AF_UNIX, SOCK_STREAM, 0);
     serverUNIXAddress.sun_family = AF_UNIX;
-    strcpy(serverUNIXAddress.sun_path, "central");
+    strcpy(serverUNIXAddress.sun_path, name);
     do
     {
         result = connect(clientFd, serverSockAddrPtr, serverLen);

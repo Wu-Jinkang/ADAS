@@ -13,18 +13,18 @@
 
 int main(int argc, char *argv[])
 {
-    int clientFd;
-    char componentName[] = "forwardFacingRadar";
-    clientFd = connectToServer("central");
+    int clientFd, centralFd;
+    char componentName[] = "surroundViewCameras";
+    clientFd = connectToServer("parkAssist"); // Connect to park assist
     sendComponentName(clientFd, componentName);
 
     char buffer[1024];
     int logFd, urandomFd;
 
-    logFd = open(RADAR_LOG, O_WRONLY);
+    logFd = open(CAMERAS_LOG, O_WRONLY);
     if (logFd == -1)
     {
-        perror("open radar log");
+        perror("open cameras log");
         exit(EXIT_FAILURE);
     }
 
@@ -49,7 +49,6 @@ int main(int argc, char *argv[])
             }
             sendC(clientFd, buffer);
         }
-        sleep(1);
     }
 
     close(logFd);

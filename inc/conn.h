@@ -1,8 +1,8 @@
 #ifndef CONN_H
 #define CONN_H
 
-int initServerSocket(void);
-int connectToServer(void);
+int initServerSocket(char *name);
+int connectToServer(char *name);
 int readLine(int fd, char *str);
 void sendComponentName(int clientFd, char *name);
 void sendC(int clientFd, char *buffer);

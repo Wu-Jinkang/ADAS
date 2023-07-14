@@ -51,6 +51,11 @@ char* getDataSrcUrandom(char *mode)
     return strcmp(mode, "ARTIFICIALE") == 0 ? URANDOM_ARTIFICIAL : URANDOM;
 }
 
+char *getDataSrcRandom(char *mode)
+{
+    return strcmp(mode, "ARTIFICIALE") == 0 ? RANDOM_ARTIFICIAL : RANDOM;
+}
+
 int read8(int fd, char *str)
 {
     unsigned long int buffer[8];
