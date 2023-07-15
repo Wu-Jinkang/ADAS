@@ -41,6 +41,6 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.c
 	$(CC) -c $< -I $(INCDIR) -o $@
 
 clean:
-	rm -f obj/*.o bin/*
+	rm -f obj/*.o bin/* log/*
 
 .PHONY: all clean
