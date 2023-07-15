@@ -46,6 +46,8 @@ int main(int argc, char *argv[])
     }
 
     centralECU(centralFd, components, argv[1]);
+    close(centralFd);
+    unlink("central");
     return 0;
 } 
 

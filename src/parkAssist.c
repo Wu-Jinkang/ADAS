@@ -73,8 +73,11 @@ int main(int argc, char *argv[])
 
     kill(surroundViewCameras.pid, SIGTERM);
     sendMsg(clientFd, "END");
+    close(clientFd);
+    close(serverFd);
     close(urandomFd);
     close(logFd);
+    unlink("parkAssist");
 
     return 0;
 }
