@@ -34,54 +34,57 @@ int main(int argc, char *argv[])
     char str[100];
     int logFd, urandomFd;
 
-    logFd = open(ASSIST_LOG, O_WRONLY);
+    logFd = open(ASSIST_LOG, O_WRONLY); // Open log file
     if (logFd == -1)
     {
         perror("open park log");
         exit(EXIT_FAILURE);
     }
-    urandomFd = open(getDataSrcUrandom(argv[1]), O_RDONLY);
+    urandomFd = open(getDataSrcUrandom(argv[1]), O_RDONLY); // Open file "urandom"
     if (urandomFd == -1)
     {
         perror("open urandom");
         exit(EXIT_FAILURE);
     }
 
-    for (int i = 0; i < 30; ++i)
+    for (int i = 0; i < 30; ++i) // Repeat 30 times
     {
         memset(str, 0, sizeof str);
-        int byteRead = read8(urandomFd, str);
+        int byteRead = read8(urandomFd, str); // Read 8 byte from file "urandom"
 
         memset(surroundViewCameras.buffer, 0, sizeof surroundViewCameras.buffer);
-        if (readLine(surroundViewCameras.fd, surroundViewCameras.buffer) > 0)
+        if (readLine(surroundViewCameras.fd, surroundViewCameras.buffer) > 0) // Read bytes from surround view cameras
         {
-            sendOk(surroundViewCameras.fd);
-            sendMsg(clientFd, surroundViewCameras.buffer);
+            sendOk(surroundViewCameras.fd); // Wake up surround view cameras
+            sendMsg(clientFd, surroundViewCameras.buffer); // Send bytes to central ECU
         }
         if (byteRead == 8)
         {
-            if (writeln(logFd, str) == -1)
+            if (writeln(logFd, str) == -1) // Write in log
             {
                 perror("write");
                 exit(EXIT_FAILURE);
             }
-            sendMsg(clientFd, str);
+            sendMsg(clientFd, str); // Send bytes to central ECU
         }
 
         sleep(1);
     }
 
     kill(surroundViewCameras.pid, SIGTERM);
-    sendMsg(clientFd, "END");
+    sendMsg(clientFd, "END"); // Parking success send confirmation
     close(clientFd);
     close(serverFd);
     close(urandomFd);
     close(logFd);
-    unlink("parkAssist");
+    unlink("parkAssist"); // Remove park assist
 
     return 0;
 }
 
+/*
+    Execute surround view cameras in child process
+*/
 void execSurroundViewCameras(char *mode)
 {
     if (fork() == 0)
@@ -96,6 +99,9 @@ void execSurroundViewCameras(char *mode)
     }
 }
 
+/*
+    SIGTERM handler, terminate surround view cameras then exit 
+*/
 void termHandler(int sig)
 {
     kill(surroundViewCameras.pid, SIGTERM);

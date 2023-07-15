@@ -8,6 +8,9 @@
 #include "conn.h"
 #include "def.h"
 
+/*
+    Initialize a socket server, given a name, returns server socket file descriptor
+*/
 int initServerSocket(char *name)
 {
     int centralFd;
@@ -37,6 +40,9 @@ int initServerSocket(char *name)
     return centralFd;
 }
 
+/*
+    Connect to a server, given a name, returns server socket file descriptor
+*/
 int connectToServer(char *name)
 {
     int clientFd, serverLen, result;
@@ -57,6 +63,9 @@ int connectToServer(char *name)
     return clientFd;
 }
 
+/*
+    Connect to client, given a socket file descriptor, returns a struct Component with name, pid, fd of the client connected
+*/
 struct Component connectToComponent(int centralFd)
 {
     struct Component c1;
@@ -80,7 +89,7 @@ struct Component connectToComponent(int centralFd)
         sleep(1);
     }
 
-    sendOk(clientFd);
+    sendOk(clientFd); // synchronize client
 
     c1.name = malloc(strlen(buffer) + 1);
     strcpy(c1.name, buffer);
@@ -91,13 +100,16 @@ struct Component connectToComponent(int centralFd)
         sleep(1);
     }
 
-    printf("%s[%d]: connected\n", buffer, pid);
+    printf("%s[%d]: connected\n", buffer, pid); // print client connected with pid
     c1.fd = clientFd;
     c1.pid = pid;
 
     return c1;
 }
 
+/*
+    Write message, given file descriptor and pointer to the buffer
+*/
 void sendMsg(int clientFd, char *msg)
 {
     int result;
@@ -109,6 +121,9 @@ void sendMsg(int clientFd, char *msg)
     }
 }
 
+/*
+    Write component name, process pid to file descriptor, given file descriptor and pointer to the buffer
+*/
 void sendComponentName(int clientFd, char *name)
 {
     sendC(clientFd, name);
@@ -122,18 +137,26 @@ void sendComponentName(int clientFd, char *name)
     }
 }
 
+/*
+    Write a message to file descriptor, given file descriptor and pointer to the buffer
+*/
 void sendC(int clientFd, char *buffer)
 {
     sendMsg(clientFd, buffer);
     waitOk(clientFd);
 }
 
+/*
+    Write ok given a file descriptor
+*/
 void sendOk(int clientFd)
 {
-    char ok[] = "ok";
-    sendMsg(clientFd, ok);
+    sendMsg(clientFd, "ok");
 }
 
+/*
+    Wait ok response in loop given a file descriptor
+*/
 void waitOk(int clientFd)
 {
     char res[3];

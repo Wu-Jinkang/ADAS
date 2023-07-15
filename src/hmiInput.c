@@ -16,12 +16,12 @@ int main(void)
 
     int clientFd;
     char componentName[] = "hmiInput";
-    clientFd = connectToServer("central");
+    clientFd = connectToServer("central"); // Connect to central ECU
     sendComponentName(clientFd, componentName);
 
     printf("Waiting for components initialize: ");
 
-    waitOk(clientFd);
+    waitOk(clientFd); // Wait all components to initialize
     printf("Done\n");
 
     char input[1024];
@@ -30,7 +30,7 @@ int main(void)
         memset(input, 0, sizeof(input));
         printf("Enter a command: ");
 
-        if (scanf("%s", input) == EOF)
+        if (scanf("%s", input) == EOF) // Read input from keyboard
         {
             break;
         }
@@ -38,7 +38,7 @@ int main(void)
         if (strcmp(input, "INIZIO") == 0 || strcmp(input, "PARCHEGGIO") == 0 || strcmp(input, "ARRESTO") == 0)
         {
             size_t len = strlen(input);
-            sendC(clientFd, input);
+            sendC(clientFd, input); // Send input to central ECU, wait confirmation
         }
         else
             printf("Invalid command\n");

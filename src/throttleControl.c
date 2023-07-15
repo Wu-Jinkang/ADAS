@@ -14,25 +14,25 @@
 #include "def.h"
 #include "util.h"
 
-int throttle_breaks(int fd);
+int throttleBreaks(int fd);
 
 int main(int argc, char *argv[])
 {
     int clientFd;
     char componentName[] = "throttleControl";
     clientFd = connectToServer("central");
-    sendComponentName(clientFd, componentName);
+    sendComponentName(clientFd, componentName); // Send component info to central ECU
 
     char str[100], printStr[100];
     int logFd, randomFd;
 
-    logFd = open(THROTTLE_LOG, O_WRONLY);
+    logFd = open(THROTTLE_LOG, O_WRONLY); // Open log file
     if (logFd == -1)
     {
         perror("open throttle log");
         exit(EXIT_FAILURE);
     }
-    randomFd = open(getDataSrcRandom(argv[1]), O_RDONLY);
+    randomFd = open(getDataSrcRandom(argv[1]), O_RDONLY); // Open random file
     if (randomFd == -1)
     {
         perror("open urandom");
@@ -40,17 +40,17 @@ int main(int argc, char *argv[])
     }
 
     pid_t ppid;
-    ppid = getppid();
+    ppid = getppid(); // Get parent pid
 
     while (1)
     {
         memset(str, 0, sizeof str);
-        sendOk(clientFd);
+        sendOk(clientFd); // Synchronize central ECU
         readLine(clientFd, str);
 
-        if (throttle_breaks(randomFd))
+        if (throttleBreaks(randomFd))
         {
-            kill(ppid, SIGUSR1);
+            kill(ppid, SIGUSR1); // Send SIGUSR1 to central ECU if throttle control break
             break;
         }
 
@@ -74,7 +74,7 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-int throttle_breaks(int fd)
+int throttleBreaks(int fd)
 {
     unsigned int randomNumber;
     int result = read(fd, &randomNumber, sizeof randomNumber);

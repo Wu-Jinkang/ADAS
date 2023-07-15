@@ -15,7 +15,7 @@ int main(void)
     int fd, len = 0, n;
     char str[1024];
 
-    fd = open(ECU_LOG, O_RDONLY);
+    fd = open(ECU_LOG, O_RDONLY); // Open log file
     if (fd == -1)
     {
         perror("open ecu log");
@@ -27,10 +27,10 @@ int main(void)
         memset(str, 0, sizeof str);
         // Get file string current length
         off_t currentPos = lseek(fd, (size_t)0, SEEK_END);
-        n = readLineFromIndex(fd, str, &len);
+        readLineFromIndex(fd, str, &len); // Read from position
         if (currentPos > len)
         {
-            len = currentPos;
+            len = currentPos; // update current position
             printf("%s", str);
         }
     } while (1);

@@ -15,21 +15,28 @@
 #include "def.h"
 #include "util.h"
 
-struct Component components[7];
+struct Component hmiInput, steerByWire, brakeByWire, throttleControl, forwardFacingRadar, frontWindshieldCamera, parkAssist;
 unsigned int speed = 0;
 
 int createLog(char *path);
-int getMode(char * inputString);
+int getMode(char *inputString);
 void initLogFiles(void);
 void removeLogFiles(void);
 void execComponents(char *mode);
-void centralECU(int centralFd, struct Component *components, char *mode);
+void centralECU(int centralFd, char *mode);
 void execParkAssist(char *mode);
 int checkHex(char *buffer);
+void bindComponentAndWaitStart(struct Component *components);
+void frontWindshieldCameraReader(unsigned int *readSpeed, unsigned int *suspend, unsigned int *parking, int logFd);
+int parkingReader(int centralFd, char *mode);
+void slowingDownToParking(unsigned int *brakeByWireReady, int logFd, char *mode, int centralFd);
+void speedUp(unsigned int *throttleControlReady, unsigned int readSpeed, int logFd);
+void slowingDown(unsigned int *brakeByWireReady, unsigned int readSpeed, int logFd);
+void hmiInputReader(unsigned int *parking, unsigned int *suspend, int logFd);
 
 int main(int argc, char *argv[])
 {
-    int mode; //launch mode
+    int mode; // launch mode
     mode = getMode(argv[1]);
     initLogFiles();
     execComponents(argv[1]);
@@ -37,24 +44,28 @@ int main(int argc, char *argv[])
     int centralFd, clientFd;
     centralFd = initServerSocket("central");
     printf("Start central ecu, waiting for connections...\n");
-
+    struct Component components[7];
     for (int i = 0; i < 6; ++i)
     {
         components[i] = connectToComponent(centralFd);
         int flags = fcntl(components[i].fd, F_GETFL, 0);
         fcntl(components[i].fd, F_SETFL, flags | O_NONBLOCK);
     }
-
-    centralECU(centralFd, components, argv[1]);
+    bindComponentAndWaitStart(components);
+    centralECU(centralFd, argv[1]);
     close(centralFd);
     unlink("central");
     return 0;
-} 
+}
 
-int createLog (char *path) 
+/*
+    Create log file given a path
+*/
+int createLog(char *path)
 {
     int fd = open(path, O_CREAT, S_IRUSR | S_IWUSR);
-    if (fd == -1) {
+    if (fd == -1)
+    {
         perror("create log");
         exit(EXIT_FAILURE);
     }
@@ -62,7 +73,10 @@ int createLog (char *path)
     return 1;
 }
 
-int getMode (char* inputString)
+/*
+    Validate user input modality
+*/
+int getMode(char *inputString)
 {
     // Check input
     if (inputString == NULL)
@@ -85,7 +99,10 @@ int getMode (char* inputString)
     }
 }
 
-void removeLogFiles (void)
+/*
+    Remove log files 
+*/
+void removeLogFiles(void)
 {
     remove(ECU_LOG);
     remove(STEER_LOG);
@@ -97,7 +114,10 @@ void removeLogFiles (void)
     remove(CAMERAS_LOG);
 }
 
-void initLogFiles (void)
+/*
+    Init log files
+*/
+void initLogFiles(void)
 {
     removeLogFiles();
     printf("Init log files\n");
@@ -107,7 +127,7 @@ void initLogFiles (void)
                 createLog(BRAKE_LOG) &&
                 createLog(CAMERA_LOG) &&
                 createLog(RADAR_LOG) &&
-                createLog(ASSIST_LOG) && 
+                createLog(ASSIST_LOG) &&
                 createLog(CAMERAS_LOG);
     if (!state)
     {
@@ -117,7 +137,10 @@ void initLogFiles (void)
     }
 }
 
-void execComponents (char* mode)
+/*
+    Execute components in child process
+*/
+void execComponents(char *mode)
 {
     int processes = 6, i;
 
@@ -128,7 +151,7 @@ void execComponents (char* mode)
             if (i == 1)
             {
                 printf("Start brake by wire\n");
-                char* args[] = {BRAKE_BY_WIRE, mode, NULL};
+                char *args[] = {BRAKE_BY_WIRE, mode, NULL};
                 if (execvp(BRAKE_BY_WIRE, args) < 0)
                 {
                     perror("execvp");
@@ -138,7 +161,7 @@ void execComponents (char* mode)
             else if (i == 2)
             {
                 printf("Start forward facing radar\n");
-                char* args[] = {FORWARD_FACING_RADAR, mode, NULL};
+                char *args[] = {FORWARD_FACING_RADAR, mode, NULL};
                 if (execvp(FORWARD_FACING_RADAR, args) < 0)
                 {
                     perror("execvp");
@@ -189,6 +212,9 @@ void execComponents (char* mode)
     }
 }
 
+/*
+    Execute park assist in child process
+*/
 void execParkAssist(char *mode)
 {
     if (fork() == 0)
@@ -203,34 +229,40 @@ void execParkAssist(char *mode)
     }
 }
 
+/*
+    Throttle control signal SIGUSR2 Handler, stop all process and exit
+*/
 void throttleControlBrokeHandler(int sig)
 {
     printf("Throttle control rotto!\n");
     speed = 0;
-    for (int i = 0; i < 6; i++)
-    {
-        kill(components[i].pid, SIGTERM);
-    }
+    kill(hmiInput.pid, SIGTERM);
+    kill(throttleControl.pid, SIGTERM);
+    kill(brakeByWire.pid, SIGTERM);
+    kill(steerByWire.pid, SIGTERM);
+    kill(frontWindshieldCamera.pid, SIGTERM);
+    kill(forwardFacingRadar.pid, SIGTERM);
     exit(EXIT_SUCCESS);
 }
 
-void centralECU (int centralFd, struct Component *components, char *mode)
+/*
+    Bind components to global variables, wait user input start
+*/
+void bindComponentAndWaitStart(struct Component *components)
 {
-    int hmiInput, steerByWire, brakeByWire, throttleControl, forwardFacingRadar, frontWindshieldCamera, parkAssist = 6; // Index
-
     for (int i = 0; i < 6; ++i)
     {
         if (strcmp(components[i].name, "hmiInput") == 0)
         {
-            hmiInput = i;
-            sendOk(components[hmiInput].fd); // Start listen user input
+            hmiInput = components[i];
+            sendOk(hmiInput.fd); // Start listen user input
             while (1)
             {
-                memset(components[hmiInput].buffer, 0, sizeof components[hmiInput].buffer);
-                if (readLine(components[hmiInput].fd, components[hmiInput].buffer) > 0)
+                memset(hmiInput.buffer, 0, sizeof hmiInput.buffer);
+                if (readLine(hmiInput.fd, hmiInput.buffer) > 0)
                 {
-                    sendOk(components[hmiInput].fd);
-                    if (strcmp(components[hmiInput].buffer, "INIZIO") == 0)
+                    sendOk(hmiInput.fd);
+                    if (strcmp(hmiInput.buffer, "INIZIO") == 0)
                     {
                         break;
                     }
@@ -240,187 +272,244 @@ void centralECU (int centralFd, struct Component *components, char *mode)
         }
         if (strcmp(components[i].name, "steerByWire") == 0)
         {
-            steerByWire = i;
+            steerByWire = components[i];
         }
         if (strcmp(components[i].name, "brakeByWire") == 0)
         {
-            brakeByWire = i;
+            brakeByWire = components[i];
         }
         if (strcmp(components[i].name, "forwardFacingRadar") == 0)
         {
-            forwardFacingRadar = i;
+            forwardFacingRadar = components[i];
         }
         if (strcmp(components[i].name, "frontWindshieldCamera") == 0)
         {
-            frontWindshieldCamera = i;
+            frontWindshieldCamera = components[i];
         }
         if (strcmp(components[i].name, "throttleControl") == 0)
         {
-            throttleControl = i;
+            throttleControl = components[i];
         }
     }
+}
 
-    unsigned int readSpeed = 0, danger = 0, increment = 0, decrement = 0, suspend = 0, stop = 0, parking = 0;
+/*
+    Central ECU logic
+*/
+void centralECU(int centralFd, char *mode)
+{
+    unsigned int readSpeed = 0;             // Read speed limit
+    unsigned int throttleControlReady = 0;  // Throttle control is ready, so don't need to read from it's fd
+    unsigned int brakeByWireReady = 0;      // Brake by wire is ready, so don't need to read from it's fd
+    unsigned int suspend = 0;               // Read PERICOLO, suspend central ECU until user input INIZIO
+    unsigned int parking = 0;               // Read PARCHEGGIO from front windshield camera or from user input
 
-    int logFd = open(ECU_LOG, O_WRONLY);
+    int logFd = open(ECU_LOG, O_WRONLY); // Open log file
     if (logFd == -1)
     {
         perror("open throttle log");
         exit(EXIT_FAILURE);
     }
 
-    signal(SIGUSR1, throttleControlBrokeHandler); // should set speed to 0 and terminate todo
+    signal(SIGUSR1, throttleControlBrokeHandler); // Set speed to 0 and terminate
 
     while (1)
     {
-        memset(components[hmiInput].buffer, 0, sizeof components[hmiInput].buffer);
-        if (!parking && readLine(components[hmiInput].fd, components[hmiInput].buffer) > 0) // Ignore HMI info if parking is requested
+        memset(hmiInput.buffer, 0, sizeof hmiInput.buffer);
+        if (!parking && readLine(hmiInput.fd, hmiInput.buffer) > 0) // Ignore HMI info if parking is requested
         {
-            sendOk(components[hmiInput].fd);
-            if (strcmp(components[hmiInput].buffer, "PARCHEGGIO") == 0)
-            {
-                parking = 1;
-            }
-
-            if (strcmp(components[hmiInput].buffer, "ARRESTO") == 0)
-            {
-                writeln(logFd, "ARRESTO");
-                kill(components[brakeByWire].pid, SIGUSR2); // Send signal to brake by wire
-                speed = 0;
-            }
-
-            if (strcmp(components[hmiInput].buffer, "INIZIO") == 0)
-            {
-                suspend = 0; // Restart from status danger
-            }
+            hmiInputReader(&parking, &suspend, logFd);
         }
 
-        memset(components[forwardFacingRadar].buffer, 0, sizeof components[forwardFacingRadar].buffer); // Reset buffer
-        if (!parking && readLine(components[forwardFacingRadar].fd, components[forwardFacingRadar].buffer) > 0) // Ignore forward facing radar info if parking is requested
+        memset(forwardFacingRadar.buffer, 0, sizeof forwardFacingRadar.buffer);        
+        if (!parking && readLine(forwardFacingRadar.fd, forwardFacingRadar.buffer) > 0) // Ignore forward facing radar info if parking is requested
         {
-            sendOk(components[forwardFacingRadar].fd);
+            sendOk(forwardFacingRadar.fd);
         }
 
         // Read speed to be achieved, turn left, turn right and danger from front windshield camera
-        memset(components[frontWindshieldCamera].buffer, 0, sizeof components[frontWindshieldCamera].buffer);         // Reset buffer
-        if (!parking && !suspend && readLine(components[frontWindshieldCamera].fd, components[frontWindshieldCamera].buffer) > 0) // Ignore front windshield camera if suspend or parking
+        memset(frontWindshieldCamera.buffer, 0, sizeof frontWindshieldCamera.buffer);               
+        if (!parking && !suspend && readLine(frontWindshieldCamera.fd, frontWindshieldCamera.buffer) > 0) // Ignore front windshield camera if suspend or parking
         {
-            sendOk(components[frontWindshieldCamera].fd); // Sync
-
-            if (isNumber(components[frontWindshieldCamera].buffer)) // Read a number
-            {
-                readSpeed = toNumber(components[frontWindshieldCamera].buffer);
-            }
-
-            if (strcmp(components[frontWindshieldCamera].buffer, "DESTRA") == 0 || strcmp(components[frontWindshieldCamera].buffer, "SINISTRA") == 0)
-            {
-                writeln(logFd, components[frontWindshieldCamera].buffer);
-                sendMsg(components[steerByWire].fd, components[frontWindshieldCamera].buffer); // Send comand to steer by wire
-            }
-
-            if (strcmp(components[frontWindshieldCamera].buffer, "PERICOLO") == 0)
-            {
-                writeln(logFd, "ARRESTO");
-                kill(components[brakeByWire].pid, SIGUSR2); // Send signal to brake by wire
-                suspend = 1;                                // Suspend until user input INIZIO
-                speed = 0;
-            }
-
-            if (strcmp(components[frontWindshieldCamera].buffer, "PARCHEGGIO") == 0)
-            {
-                writeln(logFd, "PARCHEGGIO");
-                parking = 1;
-            }
+            frontWindshieldCameraReader(&readSpeed, &suspend, &parking, logFd);
         }
 
         if (!suspend && !parking) // Ignore actuators if suspend
         {
-            // Increment speed
-            memset(components[throttleControl].buffer, 0, sizeof components[throttleControl].buffer);          // Reset buffer
-            if (increment || readLine(components[throttleControl].fd, components[throttleControl].buffer) > 0) // Throttle control ready to update
-            {
-                increment = 1;
-                if (speed < readSpeed)
-                {
-                    speed += 5;
-                    writeln(logFd, "INCREMENTO 5");
-                    sendMsg(components[throttleControl].fd, "INCREMENTO 5");
-                    increment = 0;
-                }
-            }
-
-            // Decrement speed
-            memset(components[brakeByWire].buffer, 0, sizeof components[brakeByWire].buffer);          // Reset buffer
-            if (decrement || readLine(components[brakeByWire].fd, components[brakeByWire].buffer) > 0) // Brake by wire ready to update
-            {
-                decrement = 1;
-                if (speed > readSpeed)
-                {
-                    speed -= 5;
-                    writeln(logFd, "FRENO 5");
-                    sendMsg(components[brakeByWire].fd, "FRENO 5");
-                    decrement = 0;
-                }
-            }
+            speedUp(&throttleControlReady, readSpeed, logFd);
+            slowingDown(&brakeByWireReady, readSpeed, logFd);
         }
 
         if (parking)
         {
-            // Decrement speed
-            memset(components[brakeByWire].buffer, 0, sizeof components[brakeByWire].buffer);          // Reset buffer
-            if (speed >= 5 && (decrement || readLine(components[brakeByWire].fd, components[brakeByWire].buffer) > 0)) // Brake by wire ready to update
+            memset(brakeByWire.buffer, 0, sizeof brakeByWire.buffer); 
+            if (speed >= 5 && (brakeByWireReady || readLine(brakeByWire.fd, brakeByWire.buffer) > 0)) // Brake by wire ready to update
             {
-                decrement = 0;
-                speed -= 5;
-                writeln(logFd, "FRENO 5");
-                sendMsg(components[brakeByWire].fd, "FRENO 5");
-                if (speed == 0)
-                {
-                    execParkAssist(mode);
-                    components[parkAssist] = connectToComponent(centralFd);
-                    int flags = fcntl(components[parkAssist].fd, F_GETFL, 0);
-                    fcntl(components[parkAssist].fd, F_SETFL, flags | O_NONBLOCK);
-                    kill(components[frontWindshieldCamera].pid, SIGTERM);
-                    kill(components[forwardFacingRadar].pid, SIGTERM);
-                    kill(components[steerByWire].pid, SIGTERM);
-                    kill(components[brakeByWire].pid, SIGTERM);
-                    kill(components[throttleControl].pid, SIGTERM);
-                }
+                slowingDownToParking(&brakeByWireReady, logFd, mode, centralFd);
             }
 
-            if (speed == 0)
+            if (speed == 0 && parkingReader(centralFd, mode))
             {
-                memset(components[parkAssist].buffer, 0, sizeof components[parkAssist].buffer);             // Reset buffer
-                if (readLine(components[parkAssist].fd, components[parkAssist].buffer) > 0)   // Brake by wire ready to update
-                {
-                    if (checkHex(components[parkAssist].buffer))
-                    {
-                        printf("PARKING FAILED, RESTART PARKING\n");
-                        kill(components[parkAssist].pid, SIGTERM); // Stop park assist and restart
-                        execParkAssist(mode);
-                        components[parkAssist] = connectToComponent(centralFd);
-                        int flags = fcntl(components[parkAssist].fd, F_GETFL, 0);
-                        fcntl(components[parkAssist].fd, F_SETFL, flags | O_NONBLOCK);
-                    }
-                    else if (strcmp(components[parkAssist].buffer, "END") == 0)
-                    {
-                        kill(components[hmiInput].pid, SIGTERM); // Park assist and surround view cameras should quit by their self
-                        break;
-                    }
-                }
+                break;
             }
         }
 
-        usleep(100000); // 0.1s to use less cpu
+        usleep(100000); // 0.1s to use less cpu, central ECU should be always active
     }
 }
 
+/*
+    Check if the string given contains special sequence of char
+*/
 int checkHex(char *buffer)
 {
-    return strstr(buffer, "172A") != NULL
-        || strstr(buffer, "D693") != NULL
-        || strstr(buffer, "0000") != NULL
-        || strstr(buffer, "BDD8") != NULL
-        || strstr(buffer, "FAEE") != NULL 
-        || strstr(buffer, "4300") != NULL;
+    return strstr(buffer, "172A") != NULL || strstr(buffer, "D693") != NULL || strstr(buffer, "0000") != NULL || strstr(buffer, "BDD8") != NULL || strstr(buffer, "FAEE") != NULL || strstr(buffer, "4300") != NULL;
+}
+
+/*
+    Parking component reader
+*/
+int parkingReader(int centralFd, char *mode)
+{
+    memset(parkAssist.buffer, 0, sizeof parkAssist.buffer); // Reset buffer
+    if (readLine(parkAssist.fd, parkAssist.buffer) > 0)     // Brake by wire ready to update
+    {
+        if (checkHex(parkAssist.buffer))
+        {
+            printf("PARKING FAILED, RESTART PARKING\n");
+            kill(parkAssist.pid, SIGTERM); // Stop park assist and restart
+            execParkAssist(mode);
+            parkAssist = connectToComponent(centralFd);
+            int flags = fcntl(parkAssist.fd, F_GETFL, 0);
+            fcntl(parkAssist.fd, F_SETFL, flags | O_NONBLOCK);
+        }
+        else if (strcmp(parkAssist.buffer, "END") == 0)
+        {
+            kill(hmiInput.pid, SIGTERM); // Park assist and surround view cameras should quit by their self
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/*
+    Front windshield camera component reader
+*/
+void frontWindshieldCameraReader(unsigned int *readSpeed, unsigned int *suspend, unsigned int *parking, int logFd)
+{
+    sendOk(frontWindshieldCamera.fd); // Sync
+
+    if (isNumber(frontWindshieldCamera.buffer)) // Read a number
+    {
+        *readSpeed = toNumber(frontWindshieldCamera.buffer);
+    }
+
+    if (strcmp(frontWindshieldCamera.buffer, "DESTRA") == 0 || strcmp(frontWindshieldCamera.buffer, "SINISTRA") == 0)
+    {
+        writeln(logFd, frontWindshieldCamera.buffer);
+        sendMsg(steerByWire.fd, frontWindshieldCamera.buffer); // Send command to steer by wire
+    }
+
+    if (strcmp(frontWindshieldCamera.buffer, "PERICOLO") == 0)
+    {
+        writeln(logFd, "ARRESTO");
+        kill(brakeByWire.pid, SIGUSR2); // Send signal to brake by wire
+        *suspend = 1;                    // Suspend until user input INIZIO
+        speed = 0;
+    }
+
+    if (strcmp(frontWindshieldCamera.buffer, "PARCHEGGIO") == 0)
+    {
+        writeln(logFd, "PARCHEGGIO");
+        *parking = 1;
+    }
+}
+
+/*
+    Slow down to parking if parking is active
+*/
+void slowingDownToParking(unsigned int *brakeByWireReady, int logFd, char *mode, int centralFd)
+{
+    brakeByWireReady = 0;
+    speed -= 5;
+    writeln(logFd, "FRENO 5");
+    sendMsg(brakeByWire.fd, "FRENO 5");
+
+    if (speed == 0) // Ready to parking
+    {
+        execParkAssist(mode);
+        parkAssist = connectToComponent(centralFd);
+        int flags = fcntl(parkAssist.fd, F_GETFL, 0);
+        fcntl(parkAssist.fd, F_SETFL, flags | O_NONBLOCK);
+
+        // Terminate sensors and actuators
+        kill(frontWindshieldCamera.pid, SIGTERM);
+        kill(forwardFacingRadar.pid, SIGTERM);
+        kill(steerByWire.pid, SIGTERM);
+        kill(brakeByWire.pid, SIGTERM);
+        kill(throttleControl.pid, SIGTERM);
+    }
+}
+
+/*
+    Speed up, check if throttle control is ready
+*/
+void speedUp(unsigned int *throttleControlReady, unsigned int readSpeed, int logFd)
+{
+    memset(throttleControl.buffer, 0, sizeof throttleControl.buffer);                     // Reset buffer
+    if (*throttleControlReady || readLine(throttleControl.fd, throttleControl.buffer) > 0) // Throttle control ready to update
+    {
+        *throttleControlReady = 1;
+        if (speed < readSpeed)
+        {
+            speed += 5;
+            writeln(logFd, "INCREMENTO 5");
+            sendMsg(throttleControl.fd, "INCREMENTO 5"); // Send to throttle control command
+            *throttleControlReady = 0;
+        }
+    }
+}
+
+/*
+    Slowing down, check if brake by wire is ready
+*/
+void slowingDown(unsigned int *brakeByWireReady, unsigned int readSpeed, int logFd)
+{
+    memset(brakeByWire.buffer, 0, sizeof brakeByWire.buffer);
+    if (*brakeByWireReady || readLine(brakeByWire.fd, brakeByWire.buffer) > 0) // Brake by wire ready to update
+    {
+        *brakeByWireReady = 1;
+        if (speed > readSpeed)
+        {
+            speed -= 5;
+            writeln(logFd, "FRENO 5");
+            sendMsg(brakeByWire.fd, "FRENO 5"); // Send to brake by wire command
+            *brakeByWireReady = 0;
+        }
+    }
+}
+
+/*
+    hmi input, check if brake by wire is ready
+*/
+void hmiInputReader(unsigned int *parking, unsigned int *suspend, int logFd)
+{
+    if (strcmp(hmiInput.buffer, "PARCHEGGIO") == 0)
+    {
+        *parking = 1;
+    }
+
+    if (strcmp(hmiInput.buffer, "ARRESTO") == 0)
+    {
+        writeln(logFd, "ARRESTO");
+        kill(brakeByWire.pid, SIGUSR2); // Send signal to brake by wire
+        speed = 0;
+    }
+
+    if (strcmp(hmiInput.buffer, "INIZIO") == 0)
+    {
+        *suspend = 0; // Restart from status danger
+    }
+
+    sendOk(hmiInput.fd); // wake up hmi input
 }

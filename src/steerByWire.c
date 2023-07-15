@@ -15,15 +15,15 @@ int main(int argc, char *argv[])
 {
     int clientFd;
     char componentName[] = "steerByWire";
-    clientFd = connectToServer("central");
-    sendComponentName(clientFd, componentName);
+    clientFd = connectToServer("central"); // Connect to central ECU
+    sendComponentName(clientFd, componentName); // Send component info to central ECU
     int flags = fcntl(clientFd, F_GETFL, 0);
-    fcntl(clientFd, F_SETFL, flags | O_NONBLOCK);
+    fcntl(clientFd, F_SETFL, flags | O_NONBLOCK); // Set socket non block
 
     char str[1024], printStr[1024];
     int logFd, c, repeat;
 
-    logFd = open(STEER_LOG, O_WRONLY);
+    logFd = open(STEER_LOG, O_WRONLY); // Open log file
     if (logFd == -1)
     {
         perror("open steer log");
@@ -34,17 +34,17 @@ int main(int argc, char *argv[])
     {
         memset(str, 0, sizeof str);
 
-        readLine(clientFd, str);
-        repeat = 1;
+        readLine(clientFd, str); // Read central ECU non block
+        repeat = 1; // Repeat printing 1 time by default
 
         if (strcmp(str, "SINISTRA") == 0)
         {
-            repeat = 4;
+            repeat = 4; // Repeat printing 4 times if turn left
             strcpy(printStr, "STO GIRANDO A SINISTRA");
         }
         else if (strcmp(str, "DESTRA") == 0)
         {
-            repeat = 4;
+            repeat = 4; // Repeat printing 4 times if turn right
             strcpy(printStr, "STO GIRANDO A DESTRA");
         }
         else
@@ -52,7 +52,7 @@ int main(int argc, char *argv[])
             strcpy(printStr, "NO ACTION");
         }
 
-        for (c = 0; c < repeat; ++c)
+        for (c = 0; c < repeat; ++c)  // Repeat printing n times
         {
             if (writeln(logFd, printStr) == -1)
             {
@@ -65,6 +65,7 @@ int main(int argc, char *argv[])
     }
 
     close(clientFd);
+    close(logFd);
 
     return 0;
 }

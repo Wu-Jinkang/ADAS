@@ -21,14 +21,14 @@ int main(int argc, char *argv[])
     char buffer[1024];
     int logFd, urandomFd;
 
-    logFd = open(CAMERAS_LOG, O_WRONLY);
+    logFd = open(CAMERAS_LOG, O_WRONLY); // Open log file
     if (logFd == -1)
     {
         perror("open cameras log");
         exit(EXIT_FAILURE);
     }
 
-    urandomFd = open(getDataSrcUrandom(argv[1]), O_RDONLY);
+    urandomFd = open(getDataSrcUrandom(argv[1]), O_RDONLY); // Open file "random"
     if (urandomFd == -1)
     {
         perror("open urandom");
@@ -39,7 +39,7 @@ int main(int argc, char *argv[])
     {
         memset(buffer, 0, sizeof buffer);
 
-        int byteRead = read8(urandomFd, buffer);
+        int byteRead = read8(urandomFd, buffer); // Read 8 byte from file "random"
         if (byteRead == 8)
         {
             if (writeln(logFd, buffer) == -1)
@@ -47,7 +47,7 @@ int main(int argc, char *argv[])
                 perror("write");
                 exit(EXIT_FAILURE);
             }
-            sendC(clientFd, buffer);
+            sendC(clientFd, buffer); // Send read bytes to park assist, wait confirm
         }
     }
 

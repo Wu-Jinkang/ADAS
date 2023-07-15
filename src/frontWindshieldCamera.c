@@ -21,14 +21,14 @@ int main(int argc, char *argv[])
     char buffer[100];
     int logFd, cameraFd;
 
-    logFd = open(CAMERA_LOG, O_WRONLY);
+    logFd = open(CAMERA_LOG, O_WRONLY); // Open log file
     if (logFd == -1)
     {
         perror("open camera log");
         exit(EXIT_FAILURE);
     }
 
-    cameraFd = open(FRONT_CAMERA_DATA, O_RDONLY);
+    cameraFd = open(FRONT_CAMERA_DATA, O_RDONLY); // Open camera data file
     if (cameraFd == -1)
     {
         perror("open front camera data");
@@ -39,14 +39,14 @@ int main(int argc, char *argv[])
     {
         memset(buffer, 0, sizeof(buffer));
 
-        readLine(cameraFd, buffer);
-        if (writeln(logFd, buffer) == -1)
+        readLine(cameraFd, buffer); // Read from camera file
+        if (writeln(logFd, buffer) == -1) // Write in log file
         {
             perror("write");
             exit(EXIT_FAILURE);
         }
 
-        sendC(clientFd, buffer);
+        sendC(clientFd, buffer); // Send to central ECU wait confirmation
 
         sleep(1);
     }

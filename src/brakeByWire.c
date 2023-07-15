@@ -21,12 +21,12 @@ int main(int argc, char *argv[])
 {
     int clientFd;
     char componentName[] = "brakeByWire";
-    clientFd = connectToServer("central");
-    sendComponentName(clientFd, componentName);
+    clientFd = connectToServer("central"); // Connect to central ECU
+    sendComponentName(clientFd, componentName); 
 
     char str[100], printStr[100];
 
-    logFd = open(BRAKE_LOG, O_WRONLY);
+    logFd = open(BRAKE_LOG, O_WRONLY); // Open log file
     if (logFd == -1)
     {
         perror("open");
@@ -38,15 +38,15 @@ int main(int argc, char *argv[])
     while (1)
     {
         memset(str, 0, sizeof str);
-        sendOk(clientFd);
-        readLine(clientFd, str);
+        sendOk(clientFd); // Synchronize central ECU, ready to read
+        readLine(clientFd, str); // Read from central ECU
 
         if (strcmp(str, "FRENO 5") == 0)
         {
             sprintf(printStr, "%d:DECREMENTO 5", (int)time(NULL));
         }
 
-        if (writeln(logFd, printStr) == -1)
+        if (writeln(logFd, printStr) == -1) // Write in log file
         {
             perror("write");
             exit(EXIT_FAILURE);
@@ -60,6 +60,9 @@ int main(int argc, char *argv[])
     return 0;
 }
 
+/*
+    Danger signal handler, listen on SIGUSR2 signal and print ARRESTO AUTO in log file
+*/
 void dangerHandler(int sig)
 {
     char printStr[100];
