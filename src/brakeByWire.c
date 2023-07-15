@@ -17,7 +17,7 @@ int logFd;
 int clientFd;
 
 void dangerHandler(int sig);
-void termHandler(void);
+void termHandler(int sig);
 
 int main(int argc, char *argv[])
 {
@@ -80,7 +80,7 @@ void dangerHandler(int sig)
 /*
     Term signal handler, listen on SIGTERM signal and exit
 */
-void termHandler(void)
+void termHandler(int sig)
 {
     close(logFd);
     close(clientFd);

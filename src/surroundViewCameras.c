@@ -12,7 +12,7 @@
 #include "def.h"
 #include "util.h"
 
-void termHandler(void);
+void termHandler(int sig);
 int clientFd, logFd, urandomFd;
 
 int main(int argc, char *argv[])
@@ -64,7 +64,7 @@ int main(int argc, char *argv[])
 /*
     SIGTERM handler, terminate surround view cameras then exit
 */
-void termHandler(void)
+void termHandler(int sig)
 {
     close(clientFd);
     close(logFd);

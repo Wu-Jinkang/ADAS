@@ -13,7 +13,7 @@
 #include "util.h"
 
 int clientFd;
-void termHandler(void);
+void termHandler(int sig);
 
 int main(void)
 {
@@ -55,7 +55,7 @@ int main(void)
 /*
     Term signal handler, listen on SIGTERM signal and exit
 */
-void termHandler(void)
+void termHandler(int sig)
 {
     close(clientFd);
     exit(EXIT_SUCCESS);

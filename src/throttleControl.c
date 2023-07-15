@@ -17,7 +17,7 @@
 
 int clientFd, logFd, randomFd;
 
-void termHandler(void);
+void termHandler(int sig);
 int throttleBreaks(int fd);
 
 int main(int argc, char *argv[])
@@ -95,7 +95,7 @@ int throttleBreaks(int fd)
 /*
     SIGTERM handler, terminate surround view cameras then exit
 */
-void termHandler(void)
+void termHandler(int sig)
 {
     close(clientFd);
     close(logFd);

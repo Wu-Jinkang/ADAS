@@ -13,7 +13,7 @@
 #include "util.h"
 
 void execSurroundViewCameras(char *mode);
-void termHandler(void);
+void termHandler(int sig);
 struct Component surroundViewCameras;
 
 int clientFd, serverFd, logFd, urandomFd;
@@ -102,7 +102,7 @@ void execSurroundViewCameras(char *mode)
 /*
     SIGTERM handler, terminate surround view cameras then exit 
 */
-void termHandler(void)
+void termHandler(int sig)
 {
     close(clientFd);
     close(serverFd);

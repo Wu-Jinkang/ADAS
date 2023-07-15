@@ -12,7 +12,7 @@
 #include "def.h"
 #include "util.h"
 
-void termHandler(void);
+void termHandler(int sig);
 int clientFd, logFd, cameraFd;
 
 int main(int argc, char *argv[])
@@ -63,7 +63,7 @@ int main(int argc, char *argv[])
 /*
     Term signal handler, listen on SIGTERM signal and exit
 */
-void termHandler(void)
+void termHandler(int sig)
 {
     close(logFd);
     close(cameraFd);

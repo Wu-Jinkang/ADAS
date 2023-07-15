@@ -433,7 +433,7 @@ void frontWindshieldCameraReader(unsigned int *readSpeed, unsigned int *suspend,
 */
 void slowingDownToParking(unsigned int *brakeByWireReady, char *mode)
 {
-    brakeByWireReady = 0;
+    *brakeByWireReady = 0;
     speed -= 5;
     writeln(logFd, "FRENO 5");
     sendMsg(brakeByWire.fd, "FRENO 5");
