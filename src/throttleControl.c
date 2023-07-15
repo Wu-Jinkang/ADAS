@@ -9,22 +9,24 @@
 #include <signal.h>
 #include <time.h>
 #include <limits.h>
+#include <signal.h>
 
 #include "conn.h"
 #include "def.h"
 #include "util.h"
 
+int clientFd, logFd, randomFd;
+
+void termHandler(void);
 int throttleBreaks(int fd);
 
 int main(int argc, char *argv[])
 {
-    int clientFd;
     char componentName[] = "throttleControl";
     clientFd = connectToServer("central");
     sendComponentName(clientFd, componentName); // Send component info to central ECU
 
     char str[100], printStr[100];
-    int logFd, randomFd;
 
     logFd = open(THROTTLE_LOG, O_WRONLY); // Open log file
     if (logFd == -1)
@@ -74,18 +76,29 @@ int main(int argc, char *argv[])
     return 0;
 }
 
+/*
+    Simulate probability of 1/10^-5 read a random number from file "random "returns 1 if throttle breaks else returns 0
+*/
 int throttleBreaks(int fd)
 {
     unsigned int randomNumber;
-    int result = read(fd, &randomNumber, sizeof randomNumber);
+    int result = read(fd, &randomNumber, sizeof randomNumber); // Random number is between 0 and 4 294 967 295
     if (result < 0)
     {
         perror("read random");
         exit(EXIT_FAILURE);
     }
-    double probability = (double)randomNumber / (double)UINT_MAX;
-    return probability <= 0.00001;
-    /*
-        DA PENSARE NUOVAMENTE COME SIMULARE
-    */
+    double range = (double)UINT_MAX / 100000; // range is 42949.67295
+    return randomNumber < range;  // if the random number is less then 42949 then the probabiltiy is 1/10^-5
+}
+
+/*
+    SIGTERM handler, terminate surround view cameras then exit
+*/
+void termHandler(void)
+{
+    close(clientFd);
+    close(logFd);
+    close(randomFd);
+    exit(EXIT_SUCCESS);
 }

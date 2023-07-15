@@ -6,20 +6,23 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <signal.h>
 
 #include "conn.h"
 #include "def.h"
 #include "util.h"
 
+void termHandler(void);
+int clientFd, logFd, urandomFd;
+
 int main(int argc, char *argv[])
 {
-    int clientFd;
+    signal(SIGTERM, termHandler);
     char componentName[] = "forwardFacingRadar";
     clientFd = connectToServer("central");
     sendComponentName(clientFd, componentName); // Connect to central ECU
 
     char buffer[1024];
-    int logFd, urandomFd;
 
     logFd = open(RADAR_LOG, O_WRONLY); // Open log file
     if (logFd == -1)
@@ -57,4 +60,15 @@ int main(int argc, char *argv[])
     close(clientFd);
 
     return 0;
+}
+
+/*
+    Term signal handler, listen on SIGTERM signal and exit
+*/
+void termHandler(void)
+{
+    close(logFd);
+    close(urandomFd);
+    close(clientFd);
+    exit(EXIT_SUCCESS);
 }

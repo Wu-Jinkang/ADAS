@@ -6,20 +6,23 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <signal.h>
 
 #include "conn.h"
 #include "def.h"
 #include "util.h"
 
+void termHandler(void);
+int clientFd, logFd, cameraFd;
+
 int main(int argc, char *argv[])
 {
-    int clientFd;
+    signal(SIGTERM, termHandler);
     char componentName[] = "frontWindshieldCamera";
     clientFd = connectToServer("central");
     sendComponentName(clientFd, componentName);
 
     char buffer[100];
-    int logFd, cameraFd;
 
     logFd = open(CAMERA_LOG, O_WRONLY); // Open log file
     if (logFd == -1)
@@ -55,4 +58,15 @@ int main(int argc, char *argv[])
     close(logFd);
 
     return 0;
+}
+
+/*
+    Term signal handler, listen on SIGTERM signal and exit
+*/
+void termHandler(void)
+{
+    close(logFd);
+    close(cameraFd);
+    close(clientFd);
+    exit(EXIT_SUCCESS);
 }

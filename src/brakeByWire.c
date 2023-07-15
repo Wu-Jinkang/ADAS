@@ -14,12 +14,14 @@
 #include "util.h"
 
 int logFd;
+int clientFd;
 
 void dangerHandler(int sig);
+void termHandler(void);
 
 int main(int argc, char *argv[])
 {
-    int clientFd;
+    signal(SIGTERM, termHandler);
     char componentName[] = "brakeByWire";
     clientFd = connectToServer("central"); // Connect to central ECU
     sendComponentName(clientFd, componentName); 
@@ -73,4 +75,14 @@ void dangerHandler(int sig)
         perror("write");
         exit(EXIT_FAILURE);
     }
+}
+
+/*
+    Term signal handler, listen on SIGTERM signal and exit
+*/
+void termHandler(void)
+{
+    close(logFd);
+    close(clientFd);
+    exit(EXIT_SUCCESS);
 }

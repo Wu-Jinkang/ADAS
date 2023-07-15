@@ -6,20 +6,23 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <signal.h>
 
 #include "conn.h"
 #include "def.h"
 #include "util.h"
 
+void termHandler(void);
+int clientFd, logFd, urandomFd;
+
 int main(int argc, char *argv[])
 {
-    int clientFd, centralFd;
+    signal(SIGTERM, termHandler);
     char componentName[] = "surroundViewCameras";
     clientFd = connectToServer("parkAssist"); // Connect to park assist
     sendComponentName(clientFd, componentName);
 
     char buffer[1024];
-    int logFd, urandomFd;
 
     logFd = open(CAMERAS_LOG, O_WRONLY); // Open log file
     if (logFd == -1)
@@ -56,4 +59,15 @@ int main(int argc, char *argv[])
     close(clientFd);
 
     return 0;
+}
+
+/*
+    SIGTERM handler, terminate surround view cameras then exit
+*/
+void termHandler(void)
+{
+    close(clientFd);
+    close(logFd);
+    close(urandomFd);
+    exit(EXIT_SUCCESS);
 }

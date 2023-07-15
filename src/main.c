@@ -17,22 +17,23 @@
 
 struct Component hmiInput, steerByWire, brakeByWire, throttleControl, forwardFacingRadar, frontWindshieldCamera, parkAssist;
 unsigned int speed = 0;
+int centralFd, logFd;
 
 int createLog(char *path);
 int getMode(char *inputString);
 void initLogFiles(void);
 void removeLogFiles(void);
 void execComponents(char *mode);
-void centralECU(int centralFd, char *mode);
+void centralECU(char *mode);
 void execParkAssist(char *mode);
 int checkHex(char *buffer);
 void bindComponentAndWaitStart(struct Component *components);
-void frontWindshieldCameraReader(unsigned int *readSpeed, unsigned int *suspend, unsigned int *parking, int logFd);
-int parkingReader(int centralFd, char *mode);
-void slowingDownToParking(unsigned int *brakeByWireReady, int logFd, char *mode, int centralFd);
-void speedUp(unsigned int *throttleControlReady, unsigned int readSpeed, int logFd);
-void slowingDown(unsigned int *brakeByWireReady, unsigned int readSpeed, int logFd);
-void hmiInputReader(unsigned int *parking, unsigned int *suspend, int logFd);
+void frontWindshieldCameraReader(unsigned int *readSpeed, unsigned int *suspend, unsigned int *parking);
+int parkingReader(char *mode);
+void slowingDownToParking(unsigned int *brakeByWireReady, char *mode);
+void speedUp(unsigned int *throttleControlReady, unsigned int readSpeed);
+void slowingDown(unsigned int *brakeByWireReady, unsigned int readSpeed);
+void hmiInputReader(unsigned int *parking, unsigned int *suspend);
 
 int main(int argc, char *argv[])
 {
@@ -41,7 +42,6 @@ int main(int argc, char *argv[])
     initLogFiles();
     execComponents(argv[1]);
 
-    int centralFd, clientFd;
     centralFd = initServerSocket("central");
     printf("Start central ecu, waiting for connections...\n");
     struct Component components[7];
@@ -52,8 +52,15 @@ int main(int argc, char *argv[])
         fcntl(components[i].fd, F_SETFL, flags | O_NONBLOCK);
     }
     bindComponentAndWaitStart(components);
-    centralECU(centralFd, argv[1]);
+    logFd = open(ECU_LOG, O_WRONLY); // Open log file
+    if (logFd == -1)
+    {
+        perror("open ecu log");
+        exit(EXIT_FAILURE);
+    }
+    centralECU(argv[1]);
     close(centralFd);
+    close(logFd);
     unlink("central");
     return 0;
 }
@@ -242,6 +249,9 @@ void throttleControlBrokeHandler(int sig)
     kill(steerByWire.pid, SIGTERM);
     kill(frontWindshieldCamera.pid, SIGTERM);
     kill(forwardFacingRadar.pid, SIGTERM);
+    close(centralFd);
+    close(logFd);
+    unlink("central");
     exit(EXIT_SUCCESS);
 }
 
@@ -296,20 +306,13 @@ void bindComponentAndWaitStart(struct Component *components)
 /*
     Central ECU logic
 */
-void centralECU(int centralFd, char *mode)
+void centralECU(char *mode)
 {
     unsigned int readSpeed = 0;             // Read speed limit
     unsigned int throttleControlReady = 0;  // Throttle control is ready, so don't need to read from it's fd
     unsigned int brakeByWireReady = 0;      // Brake by wire is ready, so don't need to read from it's fd
     unsigned int suspend = 0;               // Read PERICOLO, suspend central ECU until user input INIZIO
     unsigned int parking = 0;               // Read PARCHEGGIO from front windshield camera or from user input
-
-    int logFd = open(ECU_LOG, O_WRONLY); // Open log file
-    if (logFd == -1)
-    {
-        perror("open throttle log");
-        exit(EXIT_FAILURE);
-    }
 
     signal(SIGUSR1, throttleControlBrokeHandler); // Set speed to 0 and terminate
 
@@ -318,7 +321,7 @@ void centralECU(int centralFd, char *mode)
         memset(hmiInput.buffer, 0, sizeof hmiInput.buffer);
         if (!parking && readLine(hmiInput.fd, hmiInput.buffer) > 0) // Ignore HMI info if parking is requested
         {
-            hmiInputReader(&parking, &suspend, logFd);
+            hmiInputReader(&parking, &suspend);
         }
 
         memset(forwardFacingRadar.buffer, 0, sizeof forwardFacingRadar.buffer);        
@@ -331,13 +334,13 @@ void centralECU(int centralFd, char *mode)
         memset(frontWindshieldCamera.buffer, 0, sizeof frontWindshieldCamera.buffer);               
         if (!parking && !suspend && readLine(frontWindshieldCamera.fd, frontWindshieldCamera.buffer) > 0) // Ignore front windshield camera if suspend or parking
         {
-            frontWindshieldCameraReader(&readSpeed, &suspend, &parking, logFd);
+            frontWindshieldCameraReader(&readSpeed, &suspend, &parking);
         }
 
         if (!suspend && !parking) // Ignore actuators if suspend
         {
-            speedUp(&throttleControlReady, readSpeed, logFd);
-            slowingDown(&brakeByWireReady, readSpeed, logFd);
+            speedUp(&throttleControlReady, readSpeed);
+            slowingDown(&brakeByWireReady, readSpeed);
         }
 
         if (parking)
@@ -345,10 +348,10 @@ void centralECU(int centralFd, char *mode)
             memset(brakeByWire.buffer, 0, sizeof brakeByWire.buffer); 
             if (speed >= 5 && (brakeByWireReady || readLine(brakeByWire.fd, brakeByWire.buffer) > 0)) // Brake by wire ready to update
             {
-                slowingDownToParking(&brakeByWireReady, logFd, mode, centralFd);
+                slowingDownToParking(&brakeByWireReady, mode);
             }
 
-            if (speed == 0 && parkingReader(centralFd, mode))
+            if (speed == 0 && parkingReader(mode)) // Ready to parking if park success exit from while
             {
                 break;
             }
@@ -369,7 +372,7 @@ int checkHex(char *buffer)
 /*
     Parking component reader
 */
-int parkingReader(int centralFd, char *mode)
+int parkingReader(char *mode)
 {
     memset(parkAssist.buffer, 0, sizeof parkAssist.buffer); // Reset buffer
     if (readLine(parkAssist.fd, parkAssist.buffer) > 0)     // Brake by wire ready to update
@@ -383,7 +386,7 @@ int parkingReader(int centralFd, char *mode)
             int flags = fcntl(parkAssist.fd, F_GETFL, 0);
             fcntl(parkAssist.fd, F_SETFL, flags | O_NONBLOCK);
         }
-        else if (strcmp(parkAssist.buffer, "END") == 0)
+        else if (strcmp(parkAssist.buffer, "END") == 0) // Parking assist finished
         {
             kill(hmiInput.pid, SIGTERM); // Park assist and surround view cameras should quit by their self
             return 1;
@@ -395,7 +398,7 @@ int parkingReader(int centralFd, char *mode)
 /*
     Front windshield camera component reader
 */
-void frontWindshieldCameraReader(unsigned int *readSpeed, unsigned int *suspend, unsigned int *parking, int logFd)
+void frontWindshieldCameraReader(unsigned int *readSpeed, unsigned int *suspend, unsigned int *parking)
 {
     sendOk(frontWindshieldCamera.fd); // Sync
 
@@ -428,7 +431,7 @@ void frontWindshieldCameraReader(unsigned int *readSpeed, unsigned int *suspend,
 /*
     Slow down to parking if parking is active
 */
-void slowingDownToParking(unsigned int *brakeByWireReady, int logFd, char *mode, int centralFd)
+void slowingDownToParking(unsigned int *brakeByWireReady, char *mode)
 {
     brakeByWireReady = 0;
     speed -= 5;
@@ -454,7 +457,7 @@ void slowingDownToParking(unsigned int *brakeByWireReady, int logFd, char *mode,
 /*
     Speed up, check if throttle control is ready
 */
-void speedUp(unsigned int *throttleControlReady, unsigned int readSpeed, int logFd)
+void speedUp(unsigned int *throttleControlReady, unsigned int readSpeed)
 {
     memset(throttleControl.buffer, 0, sizeof throttleControl.buffer);                     // Reset buffer
     if (*throttleControlReady || readLine(throttleControl.fd, throttleControl.buffer) > 0) // Throttle control ready to update
@@ -473,7 +476,7 @@ void speedUp(unsigned int *throttleControlReady, unsigned int readSpeed, int log
 /*
     Slowing down, check if brake by wire is ready
 */
-void slowingDown(unsigned int *brakeByWireReady, unsigned int readSpeed, int logFd)
+void slowingDown(unsigned int *brakeByWireReady, unsigned int readSpeed)
 {
     memset(brakeByWire.buffer, 0, sizeof brakeByWire.buffer);
     if (*brakeByWireReady || readLine(brakeByWire.fd, brakeByWire.buffer) > 0) // Brake by wire ready to update
@@ -492,7 +495,7 @@ void slowingDown(unsigned int *brakeByWireReady, unsigned int readSpeed, int log
 /*
     hmi input, check if brake by wire is ready
 */
-void hmiInputReader(unsigned int *parking, unsigned int *suspend, int logFd)
+void hmiInputReader(unsigned int *parking, unsigned int *suspend)
 {
     if (strcmp(hmiInput.buffer, "PARCHEGGIO") == 0)
     {

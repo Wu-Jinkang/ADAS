@@ -6,14 +6,18 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <signal.h>
 
 #include "conn.h"
 #include "def.h"
 #include "util.h"
 
+void termHandler(void);
+int clientFd, logFd;
+
 int main(int argc, char *argv[])
 {
-    int clientFd;
+    signal(SIGTERM, termHandler);
     char componentName[] = "steerByWire";
     clientFd = connectToServer("central"); // Connect to central ECU
     sendComponentName(clientFd, componentName); // Send component info to central ECU
@@ -21,7 +25,7 @@ int main(int argc, char *argv[])
     fcntl(clientFd, F_SETFL, flags | O_NONBLOCK); // Set socket non block
 
     char str[1024], printStr[1024];
-    int logFd, c, repeat;
+    int c, repeat;
 
     logFd = open(STEER_LOG, O_WRONLY); // Open log file
     if (logFd == -1)
@@ -68,4 +72,14 @@ int main(int argc, char *argv[])
     close(logFd);
 
     return 0;
+}
+
+/*
+    SIGTERM handler, terminate surround view cameras then exit
+*/
+void termHandler(void)
+{
+    close(clientFd);
+    close(logFd);
+    exit(EXIT_SUCCESS);
 }

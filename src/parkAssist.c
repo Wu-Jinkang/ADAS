@@ -13,15 +13,16 @@
 #include "util.h"
 
 void execSurroundViewCameras(char *mode);
-void termHandler(int sig);
+void termHandler(void);
 struct Component surroundViewCameras;
+
+int clientFd, serverFd, logFd, urandomFd;
 
 int main(int argc, char *argv[])
 {
     signal(SIGTERM, termHandler);
     execSurroundViewCameras(argv[1]); // Start surround view cameras proccess
 
-    int clientFd, serverFd;
     char componentName[] = "parkAssist";
     clientFd = connectToServer("central"); // Connect to central ECU
     sendComponentName(clientFd, componentName);
@@ -32,7 +33,6 @@ int main(int argc, char *argv[])
     fcntl(surroundViewCameras.fd, F_SETFL, flags | O_NONBLOCK);
 
     char str[100];
-    int logFd, urandomFd;
 
     logFd = open(ASSIST_LOG, O_WRONLY); // Open log file
     if (logFd == -1)
@@ -102,8 +102,13 @@ void execSurroundViewCameras(char *mode)
 /*
     SIGTERM handler, terminate surround view cameras then exit 
 */
-void termHandler(int sig)
+void termHandler(void)
 {
+    close(clientFd);
+    close(serverFd);
+    close(urandomFd);
+    close(logFd);
+    unlink("parkAssist"); // Remove park assist
     kill(surroundViewCameras.pid, SIGTERM);
     exit(EXIT_SUCCESS);
 }

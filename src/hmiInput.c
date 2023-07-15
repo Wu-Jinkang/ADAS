@@ -6,15 +6,18 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <signal.h>
 
 #include "conn.h"
 #include "def.h"
 #include "util.h"
 
+int clientFd;
+void termHandler(void);
+
 int main(void)
 {
-
-    int clientFd;
+    signal(SIGTERM, termHandler);
     char componentName[] = "hmiInput";
     clientFd = connectToServer("central"); // Connect to central ECU
     sendComponentName(clientFd, componentName);
@@ -47,4 +50,13 @@ int main(void)
     close(clientFd);
 
     return 0;
+}
+
+/*
+    Term signal handler, listen on SIGTERM signal and exit
+*/
+void termHandler(void)
+{
+    close(clientFd);
+    exit(EXIT_SUCCESS);
 }
